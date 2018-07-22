@@ -8,8 +8,8 @@
  */
 
 // Libraries
-#include <i2c_t3.h>
-#include "SdFat.h"
+#include <i2c_t3.h>                   // i2c library
+#include "SdFat.h"                    // sd card interface library
 
 // Global Variables
 IntervalTimer myTimer;                // Teensy 3.6 supported timer for interrupts
@@ -21,9 +21,9 @@ char filename[filenameLength];        // char array to hold filename info
 
 String sdata;
 long long int freq=1000;
-int maxChannels=6;
+int maxChannels=6;                 //------------>  this will be an input
 int stream=1;
-SdFatSdio sd;
+SdFatSdio sd;                         // init sd card object
 
 // 8 MiB file.
 int i2c_flag=0;
@@ -40,12 +40,12 @@ bool sdBusy() {
 void errorHalt(const char* msg) {
   if (useEx) {
     sdEx.errorHalt(msg);
-}
+  }
 }
 //------------------------------------------------------------------------------
 uint32_t kHzSdClk() {
   return sdEx.card()->kHzSdClk();
-}  
+}
 //------------------------------------------------------------------------------
 // Replace "weak" system yield() function.
 
@@ -54,18 +54,21 @@ void runTest(char filename1[],String buf,int nb)
 {
   char fin[nb];
   buf.toCharArray(fin,nb);
-//      if (nb != file.write(fin, nb))
-//      {
-//        errorHalt("write failed");
-//      }
-//      else
-//      {
-//        Serial.println("written");
-//      }
+  //      if (nb != file.write(fin, nb))
+  //      {
+  //        errorHalt("write failed");
+  //      }
+  //      else
+  //      {
+  //        Serial.println("written");
+  //      }
   file.println(buf);
-   
+
 }
-volatile char a,b; 
+
+
+// Global data
+volatile char a,b;
 int filenum=1;
 
 
@@ -74,165 +77,181 @@ int filenum=1;
 void writetosd()
 {
   for (int c=0;c<=7;c++)
-{
-  if (c < 7){
-    sdata=sdata+data[c]+',';
+  {
+    if (c < 7)
+    {
+      sdata=sdata+data[c]+',';
+    }
+    else
+    {
+      sdata=sdata+data[c];
+    }
   }
-  else{
-    sdata=sdata+data[c];
-  }
-}
-//  sdata=sdata+"\r\n";
+
   int strLength = sdata.length();
   if(stream==1)
- Serial.println(sdata);
+    Serial.println(sdata);
   if(a=='Q')
- {
-  file.close();
-  if(record==1)
-  record=0;
- }
- if(a=='S' && record==0)
- {
- Serial.println("ENTER FILENAME");
- while(!Serial.available())
- {
-  
- }
- 
- Serial.readBytes(filename,filenameLength);
+  {
+    file.close();
+    if(record==1)
+      record=0;
+  }
+  if(a=='S' && record==0)
+  {
+    Serial.println("ENTER FILENAME");
+    while(!Serial.available())
+    {
 
- Serial.println(filename);
-Serial.println("Data acquisition Start");
-i2c_flag=1;
-//    Wire.setDefaultTimeout(500); // 0.20
+    }
+
+    Serial.readBytes(filename,filenameLength);
+
+    Serial.println(filename);
+    Serial.println("Data acquisition Start");
+    i2c_flag=1;
+    //    Wire.setDefaultTimeout(500); // 0.20
     // Setup for Master mode, pins 18/19, external pullups, 400kHz, 200ms default timeout
-   
-   useEx = true;
+
+    useEx = true;
     if (!sdEx.begin()) {
       sd.initErrorHalt("SdFatSdioEX begin() failed");
     }
     else{
       Serial.println("started");
     }
-    
+
     sdEx.chvol();
-  if (!file.open(filename, O_WRITE | O_CREAT|O_AT_END)) {
-    errorHalt("open failed");
+    if (!file.open(filename, O_WRITE | O_CREAT|O_AT_END)) {
+      errorHalt("open failed");
+    }
+
+    record=1;
+
   }
 
-record=1;
- 
- }
-  
 
- 
- 
- 
 
- if(a=='S' && record==1){  
-  runTest(filename,sdata, strLength);
- 
- }
- sdata="";
+
+
+
+  if(a=='S' && record==1){
+    runTest(filename,sdata, strLength);
+
+  }
+  sdata="";
 }
 
 //-----------------------------------------------------------------------------
 void setup() {
-  char tname[9];
-   
-  char p;
   Serial.begin(115200);
-  while (!Serial) {
-  }
+  // while (!Serial) {
+  // }
+  //
+  // Serial.println("NMCHR LAB DAQ");
+  //
+  //
+  // if(serInput!='S'){
+  //   while(!Serial.available())
+  //   {
+  //
+  //   }
+  //   serInput=Serial.read();
+  // }
+  //
+  // Serial.println("ENTER FILENAME");
+  // while(!Serial.available())
+  // {
+  //
+  // }
+  // Serial.readBytes(filename,filenameLength);
+  //
+  // Serial.println(filename);
+  // Serial.println("Data acquisition Start");
+  // i2c_flag=1;
+  // //    Wire.setDefaultTimeout(500); // 0.20
+  // // Setup for Master mode, pins 18/19, external pullups, 400kHz, 200ms default timeout
+  //
+  // useEx = true;
+  // if (!sdEx.begin()) {
+  //   sd.initErrorHalt("SdFatSdioEX begin() failed");
+  // }
+  // // make sd the current volume
+  // sdEx.chvol();
+  //
+  // if (!file.open(filename, O_WRITE | O_CREAT|O_AT_END)) {
+  //   errorHalt("open failed");
+  // }
+  // record=1;
+  // a='S';
+  // delay(1000);
 
-Serial.println("NMCHR LAB DAQ");
+  // Setup I2C communication
+  Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, 400000);
+  Wire.setDefaultTimeout(200000); // 200ms
 
+// initialize timer when start command received / stop timer when stop command received
+  // // Initialize timer
+  // myTimer.begin(writetosd,(int)((1000000)/freq));
 
-if(p!='S'){
- while(!Serial.available())
- {
-  
- }
-  p=Serial.read();
 }
 
-Serial.println("ENTER FILENAME");
- while(!Serial.available())
- {
-  
- }
- Serial.readBytes(filename,filenameLength);
+char serInput;
+String serFullLine;
+bool serReading = false;
 
- Serial.println(filename);
-Serial.println("Data acquisition Start");
-i2c_flag=1;
-//    Wire.setDefaultTimeout(500); // 0.20
-    // Setup for Master mode, pins 18/19, external pullups, 400kHz, 200ms default timeout
-   
-   useEx = true;
-    if (!sdEx.begin()) {
-      sd.initErrorHalt("SdFatSdioEX begin() failed");
-    }
-    else{
-      Serial.println("started");
-    }
-    
-    sdEx.chvol();
-  if (!file.open(filename, O_WRITE | O_CREAT|O_AT_END)) {
-    errorHalt("open failed");
-  }
-record=1;
-a='S';
-delay(1000);
- Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, 400000);
-    Wire.setDefaultTimeout(200000); // 200ms
-myTimer.begin(writetosd,(int)((1000000)/freq));  
-
- }
 
 //-----------------------------------------------------------------------------
 void loop() {
-  
- if(Serial.available())
- {
-  a=Serial.read();
-  b=a;
-  if(b=='S')
+
+  if( Serial.available() )
   {
-  i2c_flag=0;
-  b=0;  
+    do {
+      serInput = Serial.read();
+      if ( serInput=='>' ){
+        serReading = true;
+      else if ( serInput == '\n')
+      }
+    } while( Serial.available() ){
+
+    }
+    a=Serial.read();
+    b=a;
+    if(b=='S')
+    {
+      i2c_flag=0;
+      b=0;
+    }
+
   }
-  
- }
- if(i2c_flag==1)
- {
-   int i = 0, ch = 0,c;
-  i=sum%maxChannels;
-  sum=sum+1;
-  if (i==0){ // this changes the input from -5V to +5V ---------> 0V - +5V on channel zero.
-    ch = 128;
-  }
-  else{
-    ch=132+(16*i);
-  }
-     
-  //    tim2=micros();
-  Wire.beginTransmission(deviceAddress);
-  Wire.write(ch);
-  Wire.endTransmission();
-  Wire.requestFrom(deviceAddress, 2);
-  int result = 0;
-  for (int c = 0; c < 2; c++)
-  if (Wire.available()) result = result * 256 + ((Wire.read()));
-  //delay(500);
-  result=result/16;
-  if(result>2047)
+  if(i2c_flag==1)
   {
-    result=result-4096;
+    int i = 0, ch = 0,c;
+    i=sum%maxChannels;
+    sum=sum+1;
+    if (i==0){ // this changes the input from -5V to +5V ---------> 0V - +5V on channel zero.
+      ch = 128;
+    }
+    else{
+      ch=132+(16*i);
+    }
+
+    //    tim2=micros();
+    Wire.beginTransmission(deviceAddress);
+    Wire.write(ch);
+    Wire.endTransmission();
+    Wire.requestFrom(deviceAddress, 2);
+    int result = 0;
+    for (int c = 0; c < 2; c++)
+      if (Wire.available()) result = result * 256 + ((Wire.read()));
+    //delay(500);
+    result=result/16;
+    if(result>2047)
+    {
+      result=result-4096;
+    }
+
+    data[i] = result;
+
   }
-  
-  data[i] = result;
-  
- }  
 }

@@ -14,6 +14,9 @@
 // Global Variables
 IntervalTimer myTimer;                // Teensy 3.6 supported timer for interrupts
 int deviceAddress = 0x28;             // DAQ-127 I2C Address
+// uint8_t controlbyte[8];
+// const uint8_t controlbyteStartbit = 128;
+
 volatile int data[8];                 // temp data array for DAQ-127 Channel Readings
 volatile int sum=0;
 const int filenameLength = 19;        // Max length of char array holding filename info
@@ -48,6 +51,9 @@ uint32_t kHzSdClk() {
 }
 //------------------------------------------------------------------------------
 // Replace "weak" system yield() function.
+
+void
+
 
 //-----------------------------------------------------------------------------
 void runTest(char filename1[],String buf,int nb)

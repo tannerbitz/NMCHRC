@@ -14,7 +14,30 @@ uint8_t controlByte[8];
 const uint8_t controlByteStartbit = 128;
 
 void ResolveControlByte(uint8_t channel, uint8_t voltRange){
-  if ( channel<8 && voltRange<4 ){
+  /*
+   * The DAQ127 uses the MAX127 chip.  The MAX127 chip is accessed by the Teensy3.6 using
+   * an I2C connection.  To read from one of the eight channels on the DAQ127 one must 
+   * call the device address of the MAX127 chip (0x28) followed by a control byte.  This 
+   * control byte uses the form
+   * 
+   *      startbit | sel2 | sel1 | sel0 | rng | bip | pd1 | pd0
+   *      
+   *  - start bit is always 1  (therefore 128 because 2^7 = 128)
+   *  - sel2, sel1, sel0 select the channel (0 - 7) ---> example: 1, 1, 1 == channel 7
+   *  - rng and bip select the voltage range
+   *      0, 0  = 0 ----->  0 to 5V
+   *      0, 1  = 1 -----> -5 to 5V
+   *      1, 0  = 2 ----->  0 to 10V
+   *      1, 1  = 3 -----> -10 to 10V
+   *   - pd1 and pd0 are always 0
+   *   
+   *   The input "channel" must be between 0 and 7.  It is bitshifted 4 bits to make it the
+   *   correct values for sel2, sel1, sel0
+   *   
+   *   The input "voltRange" must be between 0 and 3.  It is bitshifted 2 bits to make it the
+   *   correct values for rng and bip.
+   */
+  if ( channel>=0 && channel<8  && voltRange>=0 && voltRange<4 ){
     uint8_t shiftedChannel = channel << 4;
     uint8_t shiftedVoltRange = voltRange << 2;
     controlByte[channel] = controlByteStartbit + shiftedChannel + shiftedVoltRange;
@@ -22,8 +45,13 @@ void ResolveControlByte(uint8_t channel, uint8_t voltRange){
 }
 
 void ResetControlByteDefault(){
+  /*
+   * This function resets thte control byte array to its default for all 8 channels.
+   * The default voltage range is assumed to be -5 to 5V, thus defaultVoltageRange = 1
+   * as detailed in the function explanation of the ResolveControlByte() function.
+   */
   uint8_t defaultVoltRange = 1;
-  for ( uint8_t channel=1; channel<8; channel++ ){
+  for ( uint8_t channel=0; channel<8; channel++ ){
     ResolveControlByte(channel, defaultVoltRange);
   }
 }
@@ -72,6 +100,10 @@ void UpdateSineVal(){
 
 void setup() {
   // put your setup code here, to run once:
+
+  //Initalize ControlByte array
+  ResetControlByteDefault();
+  
   Serial.begin(9600);
   timer.setInterval(10, UpdateSineVal);
 }

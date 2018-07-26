@@ -1,4 +1,5 @@
 #include <SimpleTimer.h>
+#include <math.h>
 
 // Init Timer
 SimpleTimer timer;
@@ -9,23 +10,24 @@ String serFullLine;
 bool serReading = false;
 bool serDoneReading = false;
 long count = 0;
-float sineVal;
 const uint8_t controlByteStartbit = 128;
+int daqReadings[8] = {0, 0, 0, 0, 0 ,0 ,0, 0};
 
 enum Commands{
-  StartWrite = 0,
-  StopWrite = 1,
-  PrintDaqReadings = 2,
-  PrintI2CDeviceSettings = 3,
-  CustomizeI2CDevice = 4,
-  ChangeDaqChannelVoltageRange = 5
+  START_WRITE = 0,
+  STOP_WRITE = 1,
+  PRINT_DAQ_READINGS = 2,
+  PRINT_I2C_DEVICE_SETTINGS = 3,
+  CUSTOMIZE_I2C_DEVICE = 4,
+  CHANGE_VOLTAGE_RANGE = 5,
+  INSERT_DAQ_READING = 6
 };
 
 enum VoltageRange{
-  ZeroToPosFive = 1,
-  NegFiveToPosFive = 2,
-  ZeroToPosTen = 3,
-  NegTenToPosTen = 4
+  ZERO_TO_POS_FIVE = 1,
+  NEG_FIVE_TO_POS_FIVE = 2,
+  ZERO_TO_POS_TEN = 3,
+  NEG_TEN_TO_POS_TEN = 4
 };
 
 
@@ -79,7 +81,7 @@ void ResetDefaultI2CDevices(){
    * as detailed in the function explanation of the ResolveControlByte() function.
    */
 
-  VoltageRange defaultVoltRange = NegFiveToPosFive;
+  VoltageRange defaultVoltRange = NEG_FIVE_TO_POS_FIVE;
   for ( uint8_t channel=0; channel<8; channel++ ){
     i2cDevs[channel].deviceAddress = 0x28;
     i2cDevs[channel].controlByte = ResolveControlByte(channel, defaultVoltRange);
@@ -88,54 +90,101 @@ void ResetDefaultI2CDevices(){
   }
 }
 
-// void PrintControlByteArray(){
-//   char controlByteString[41];
-//   sprintf(controlByteString,
-//           "<%#x,%#x,%#x,%#x,%#x,%#x,%#x,%#x>",
-//           controlByte[0],
-//           controlByte[1],
-//           controlByte[2],
-//           controlByte[3],
-//           controlByte[4],
-//           controlByte[5],
-//           controlByte[6],
-//           controlByte[7]);
-//   Serial.print(controlByteString);
-// }
+void printDaqReadings(){
+  char daqReadingsStr[60];
+  sprintf(daqReadingsStr,
+          "<%i,%i,%i,%i,%i,%i,%i,%i>",
+          daqReadings[0],
+          daqReadings[1],
+          daqReadings[2],
+          daqReadings[3],
+          daqReadings[4],
+          daqReadings[5],
+          daqReadings[6],
+          daqReadings[7]);
+  Serial.print(daqReadingsStr);
+}
 
-
+// Broken!!!!
+void insertDaqReading(String residualSerStr){
+  Serial.println(residualSerStr);
+  String tempStr;
+  int commaIndex = residualSerStr.indexOf(",");
+  Serial.println(commaIndex);
+  while ( commaIndex != -1 ){
+    tempStr = residualSerStr.substring(0, commaIndex-1);
+    Serial.println(tempStr);
+    residualSerStr.remove(0, commaIndex);
+  }
+  Serial.println(tempStr);
+}
 
 
 void ParseSerialInput(){
   String commandStr = serFullLine.substring(0,1);
   uint8_t command = commandStr.toInt();
-  if ( command == StartWrite ){
+  serFullLine.remove(0,2);
+  if ( command == START_WRITE ){
     Serial.println("Start Write Default");
   }
-  else if ( command == StopWrite ){
+  else if ( command == STOP_WRITE ){
     Serial.println("Stop Write");
   }
-  else if ( command == ChangeDaqChannelVoltageRange ){
+  else if ( command == CHANGE_VOLTAGE_RANGE ){
     Serial.println("Change DAQ127 Channel Voltage Range");
   }
-  else if ( command == CustomizeI2CDevice){
+  else if ( command == CUSTOMIZE_I2C_DEVICE ){
     Serial.println("Custom I2C Device");
   }
-  else if ( command == PrintDaqReadings ){
-    Serial.println("Print Daq Readings");
-    // Serial.print("<");
-    // Serial.print(sineVal);
-    // Serial.print(">");
+  else if ( command == PRINT_DAQ_READINGS ){
+    printDaqReadings();
   }
-  else if ( command == PrintI2CDeviceSettings ){
-    Serial.println("Print I2C Device Settings");
-    // PrintControlByteArray();
+  else if ( command == PRINT_I2C_DEVICE_SETTINGS ){
+    printI2CDeviceSettings();
+  }
+  else if ( command == INSERT_DAQ_READING ){
+    insertDaqReading(serFullLine);
   }
 }
 
+String getVoltageRangeStr(uint8_t voltageRange){
+  String tempStr;
+  switch (voltageRange) {
+    case ZERO_TO_POS_FIVE:
+      tempStr = "0V - +5V";
+      break;
+    case NEG_FIVE_TO_POS_FIVE:
+      tempStr = "-5V - +5V";
+      break;
+    case ZERO_TO_POS_TEN:
+      tempStr = "0V - +10V";
+      break;
+    case NEG_TEN_TO_POS_TEN:
+      tempStr = "-10V - +10V";
+      break;
+  }
+  return tempStr;
+}
+
+
+void printI2CDeviceSettings(){
+  String voltRangeStr;
+  char i2cSettings[100];
+  for (int i=0; i<8; i++){
+    voltRangeStr = getVoltageRangeStr(i2cDevs[i].voltageRange);
+    sprintf(i2cSettings, 
+            "<Channel: %i,DevAddr: %#x,CntrlByte: %i,UseCntrlByte: %s, VoltRng: %s>",
+            i,
+            i2cDevs[i].deviceAddress,
+            i2cDevs[i].controlByte,
+            (i2cDevs[i].useControlByte) ? "True" : "False",
+            voltRangeStr.c_str());
+    Serial.print(i2cSettings);
+  }
+}
 
 void UpdateSineVal(){
-  sineVal = sin(2*PI*count/100);
+  daqReadings[0] = (int) floor(sin(2*PI*count/100)*2047.99);
   count = (count + 1) % 1000;
 }
 
@@ -172,4 +221,7 @@ void loop() {
     serFullLine = "";
     serDoneReading = false;
   }
+
+
+
 }

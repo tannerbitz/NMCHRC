@@ -40,6 +40,45 @@ struct I2CDevice{
 
 I2CDevice i2cDevs[8];
 
+String getVoltageRangeStr(uint8_t voltageRange){
+  String tempStr;
+  switch (voltageRange) {
+    case ZERO_TO_POS_FIVE:
+      tempStr = "0V - +5V";
+      break;
+    case NEG_FIVE_TO_POS_FIVE:
+      tempStr = "-5V - +5V";
+      break;
+    case ZERO_TO_POS_TEN:
+      tempStr = "0V - +10V";
+      break;
+    case NEG_TEN_TO_POS_TEN:
+      tempStr = "-10V - +10V";
+      break;
+  }
+  return tempStr;
+}
+
+void printI2CDeviceSettings(){
+  String voltRangeStr;
+  char i2cSettings[100];
+  for (int i=0; i<8; i++){
+    voltRangeStr = getVoltageRangeStr(i2cDevs[i].voltageRange);
+    sprintf(i2cSettings,
+            "<Channel: %i,DevAddr: %#x,CntrlByte: %i,UseCntrlByte: %s, VoltRng: %s>",
+            i,
+            i2cDevs[i].deviceAddress,
+            i2cDevs[i].controlByte,
+            (i2cDevs[i].useControlByte) ? "True" : "False",
+            voltRangeStr.c_str());
+    Serial.print(i2cSettings);
+  }
+}
+
+void UpdateSineVal(){
+  daqReadings[0] = (int) floor(sin(2*PI*count/100)*2047.99);
+  count = (count + 1) % 1000;
+}
 
 uint8_t ResolveControlByte(uint8_t channel, uint8_t voltRange){
   /*
@@ -105,25 +144,41 @@ void printDaqReadings(){
   Serial.print(daqReadingsStr);
 }
 
-// Broken!!!!
+
 void insertDaqReading(String residualSerStr){
-  Serial.println(residualSerStr);
-  String tempStr;
-  int commaIndex = residualSerStr.indexOf(",");
-  Serial.println(commaIndex);
-  while ( commaIndex != -1 ){
-    tempStr = residualSerStr.substring(0, commaIndex-1);
-    Serial.println(tempStr);
-    residualSerStr.remove(0, commaIndex);
+  char * residSerStr = residualSerStr.c_str();
+  char * pch;
+  pch = strtok(residSerStr, ",");
+  while (pch != NULL){
+    Serial.println(pch);
+    pch = strtok(NULL, ",");
   }
-  Serial.println(tempStr);
 }
 
+bool isDigitString(String testStr){
+  bool tempBool = true;
+  char testChar;
+  for (int i=0; i<testStr.length(); i++){
+    testChar = testStr.charAt(i);
+    if (~(isDigit(testChar))){
+      tempBool = false;
+      Serial.println("Failed in isDigitString function");
+      Serial.print(testChar);
+      Serial.println(" is not a digit");
+      Serial.print("isDigit result: ");
+      Serial.println(isDigit(testChar));
+      break;
+    }
+  }
+  return tempBool;
+}
 
 void ParseSerialInput(){
   String commandStr = serFullLine.substring(0,1);
   uint8_t command = commandStr.toInt();
   serFullLine.remove(0,2);
+  char * serLine = serFullLine.c_str();
+  char * pch;
   if ( command == START_WRITE ){
     Serial.println("Start Write Default");
   }
@@ -143,50 +198,48 @@ void ParseSerialInput(){
     printI2CDeviceSettings();
   }
   else if ( command == INSERT_DAQ_READING ){
-    insertDaqReading(serFullLine);
+    pch = strtok(serLine, ", ");
+    uint8_t inputCount = 0;
+    int chan;
+    String tempStr;
+    while (pch != NULL){
+      inputCount++;
+      if (inputCount == 1){
+        if (isDigitString(String(pch))){       
+          tempStr = String(pch);
+          chan = tempStr.toInt();
+          Serial.print("Channel Input: ");
+          Serial.println(chan); 
+        }
+        else{
+          Serial.print(pch);
+          Serial.println(" is not a digit");
+          break;
+        }
+      }
+      else if (inputCount == 2){
+        if (isDigitString(String(pch))){
+          tempStr = String(pch);
+          daqReadings[chan] = tempStr.toInt();
+          Serial.print("daqReadings[");
+          Serial.print(chan);
+          Serial.print("] = ");
+          Serial.println(daqReadings[chan]);  
+        }
+        else{
+          Serial.print(pch);
+          Serial.println(" is not a string");
+          break;
+        }
+      }
+      pch = strtok(NULL, ", ");
+    }
   }
 }
 
-String getVoltageRangeStr(uint8_t voltageRange){
-  String tempStr;
-  switch (voltageRange) {
-    case ZERO_TO_POS_FIVE:
-      tempStr = "0V - +5V";
-      break;
-    case NEG_FIVE_TO_POS_FIVE:
-      tempStr = "-5V - +5V";
-      break;
-    case ZERO_TO_POS_TEN:
-      tempStr = "0V - +10V";
-      break;
-    case NEG_TEN_TO_POS_TEN:
-      tempStr = "-10V - +10V";
-      break;
-  }
-  return tempStr;
-}
 
 
-void printI2CDeviceSettings(){
-  String voltRangeStr;
-  char i2cSettings[100];
-  for (int i=0; i<8; i++){
-    voltRangeStr = getVoltageRangeStr(i2cDevs[i].voltageRange);
-    sprintf(i2cSettings, 
-            "<Channel: %i,DevAddr: %#x,CntrlByte: %i,UseCntrlByte: %s, VoltRng: %s>",
-            i,
-            i2cDevs[i].deviceAddress,
-            i2cDevs[i].controlByte,
-            (i2cDevs[i].useControlByte) ? "True" : "False",
-            voltRangeStr.c_str());
-    Serial.print(i2cSettings);
-  }
-}
 
-void UpdateSineVal(){
-  daqReadings[0] = (int) floor(sin(2*PI*count/100)*2047.99);
-  count = (count + 1) % 1000;
-}
 
 void setup() {
   // put your setup code here, to run once:

@@ -4,15 +4,6 @@
 // Init Timer
 SimpleTimer timer;
 
-// Global Data
-char serInput;
-String serFullLine;
-bool serReading = false;
-bool serDoneReading = false;
-long count = 0;
-const uint8_t controlByteStartbit = 128;
-int daqReadings[8] = {0, 0, 0, 0, 0 ,0 ,0, 0};
-
 enum Commands{
   START_WRITE = 0,
   STOP_WRITE = 1,
@@ -38,6 +29,14 @@ struct I2CDevice{
   bool useControlByte;
 };
 
+// Global Data
+char serInput;
+String serFullLine;
+bool serReading = false;
+bool serDoneReading = false;
+long count = 0;
+const uint8_t controlByteStartbit = 128;
+int daqReadings[8] = {0, 0, 0, 0, 0 ,0 ,0, 0};
 I2CDevice i2cDevs[8];
 
 String getVoltageRangeStr(uint8_t voltageRange){
@@ -155,19 +154,20 @@ void insertDaqReading(String residualSerStr){
   }
 }
 
-bool isDigitString(String testStr){
+bool isNumericString(String testStr){
+  /*
+   * This function checks if each character in passed string is 0-9, 
+   * a negative sign '-', or a period '.'
+   */
   bool tempBool = true;
   char testChar;
   for (int i=0; i<testStr.length(); i++){
     testChar = testStr.charAt(i);
-    if (~(isDigit(testChar))){
-      tempBool = false;
-      Serial.println("Failed in isDigitString function");
-      Serial.print(testChar);
-      Serial.println(" is not a digit");
-      Serial.print("isDigit result: ");
-      Serial.println(isDigit(testChar));
-      break;
+    if (isDigit(testChar)==0){
+      if (!(testChar == '.' || testChar == '-')){
+        tempBool = false;
+        break;
+      }
     }
   }
   return tempBool;
@@ -187,6 +187,36 @@ void ParseSerialInput(){
   }
   else if ( command == CHANGE_VOLTAGE_RANGE ){
     Serial.println("Change DAQ127 Channel Voltage Range");
+    pch = strtok(serLine, ", ");
+    uint8_t inputCount = 0;
+    int chan;
+    String tempStr;
+    while (pch != NULL){
+      inputCount++;
+      if (inputCount == 1){
+        if (isNumericString(String(pch))){       
+          tempStr = String(pch);
+          chan = tempStr.toInt();
+          // Ensure channel reading is between 0 and 7
+          if ( chan < 0 || chan > 7 ){
+            break;
+          }
+        }
+        else{ // break out while loop if channel is not a number
+          break;
+        }
+      }
+      else if (inputCount == 2){
+        if (isNumericString(String(pch))){
+          tempStr = String(pch);
+          daqReadings[chan] = tempStr.toInt();
+        }
+        else{
+          break;
+        }
+      }
+      pch = strtok(NULL, ", ");
+    }
   }
   else if ( command == CUSTOMIZE_I2C_DEVICE ){
     Serial.println("Custom I2C Device");
@@ -198,6 +228,17 @@ void ParseSerialInput(){
     printI2CDeviceSettings();
   }
   else if ( command == INSERT_DAQ_READING ){
+    /*
+     * This reads the rest of the INSERT_DAQ_READING command.
+     * It is expected that the command is of the form:
+     *      <6,CHANNEL_NUMBER,VALUE_TO_WRITE>
+     *      
+     * -6 is in the first position as it is the command number for INSERT_DAQ_READING
+     * -CHANNEL_NUMBER and VALUE_TO_WRITE are integers
+     * -CHANNEL_NUMBER must be between 0 and 7
+     * 
+     * By this point, serLine should just be "CHANNEL_NUMBER,VALUE_TO_WRITE"
+     */
     pch = strtok(serLine, ", ");
     uint8_t inputCount = 0;
     int chan;
@@ -205,30 +246,24 @@ void ParseSerialInput(){
     while (pch != NULL){
       inputCount++;
       if (inputCount == 1){
-        if (isDigitString(String(pch))){       
+        if (isNumericString(String(pch))){       
           tempStr = String(pch);
           chan = tempStr.toInt();
-          Serial.print("Channel Input: ");
-          Serial.println(chan); 
+          // Ensure channel reading is between 0 and 7
+          if ( chan < 0 || chan > 7 ){
+            break;
+          }
         }
-        else{
-          Serial.print(pch);
-          Serial.println(" is not a digit");
+        else{ // break out while loop if channel is not a number
           break;
         }
       }
       else if (inputCount == 2){
-        if (isDigitString(String(pch))){
+        if (isNumericString(String(pch))){
           tempStr = String(pch);
           daqReadings[chan] = tempStr.toInt();
-          Serial.print("daqReadings[");
-          Serial.print(chan);
-          Serial.print("] = ");
-          Serial.println(daqReadings[chan]);  
         }
         else{
-          Serial.print(pch);
-          Serial.println(" is not a string");
           break;
         }
       }

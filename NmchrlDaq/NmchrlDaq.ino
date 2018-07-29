@@ -11,7 +11,8 @@ enum Commands{
   PRINT_I2C_DEVICE_SETTINGS = 3,
   CUSTOMIZE_I2C_DEVICE = 4,
   CHANGE_VOLTAGE_RANGE = 5,
-  INSERT_DAQ_READING = 6
+  INSERT_DAQ_READING = 6,
+  RESET_I2C_DEVICES = 7
 };
 
 // DAQ127 Channel Voltage Ranges
@@ -350,6 +351,7 @@ void insertDaqReading(char * serLine){
   }
 }
 
+int readCount = 0;
 
 void writeToSdCard(){
   // Create a comma delimited string and write to file
@@ -362,8 +364,9 @@ void writeToSdCard(){
           daqReadings[4],
           daqReadings[5],
           daqReadings[6],
-          daqReadings[7]);
+          readCount);
   file.println(daqReadingsStr);
+  readCount = 0;
 }
 
 
@@ -567,6 +570,9 @@ void ParseSerialInput(){
   else if ( cmd == INSERT_DAQ_READING ){
     insertDaqReading(serLine);
   }
+  else if ( cmd == RESET_I2C_DEVICES ){
+    ResetDefaultI2CDevices();
+  }
   delete serLine;
 }
 
@@ -614,11 +620,11 @@ void loop() {
 
   // Sample Data
   for (int chan=0; chan<6; chan++){
-    Wire.beginTransmission(i2cDevs[chan].deviceAddress);
     if (i2cDevs[chan].useControlByte){ // This is true when reading from DAQ127 channels
+      Wire.beginTransmission(i2cDevs[chan].deviceAddress);
       Wire.write(i2cDevs[chan].controlByte);
+      Wire.endTransmission();
     }
-    Wire.endTransmission();
     uint8_t bytesRequested = 2;
     Wire.requestFrom(i2cDevs[chan].deviceAddress, bytesRequested);
     uint16_t tempData = 0;
@@ -639,5 +645,6 @@ void loop() {
       }
     }
     daqReadings[chan] = tempData;
+    readCount++;
   }
 }

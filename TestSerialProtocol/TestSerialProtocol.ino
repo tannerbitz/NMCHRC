@@ -15,10 +15,11 @@ enum Commands{
 };
 
 enum VoltageRange{
-  ZERO_TO_POS_FIVE = 1,
-  NEG_FIVE_TO_POS_FIVE = 2,
-  ZERO_TO_POS_TEN = 3,
-  NEG_TEN_TO_POS_TEN = 4
+  ZERO_TO_POS_FIVE = 0,
+  NEG_FIVE_TO_POS_FIVE = 1,
+  ZERO_TO_POS_TEN = 2,
+  NEG_TEN_TO_POS_TEN = 3,
+  NOT_APPLICABLE = 4
 };
 
 
@@ -53,6 +54,9 @@ String getVoltageRangeStr(uint8_t voltageRange){
       break;
     case NEG_TEN_TO_POS_TEN:
       tempStr = "-10V - +10V";
+      break;
+    case NOT_APPLICABLE:
+      tempStr = "Not applicable";
       break;
   }
   return tempStr;
@@ -156,7 +160,7 @@ void insertDaqReading(String residualSerStr){
 
 bool isNumericString(String testStr){
   /*
-   * This function checks if each character in passed string is 0-9, 
+   * This function checks if each character in passed string is 0-9,
    * a negative sign '-', or a period '.'
    */
   bool tempBool = true;
@@ -173,12 +177,152 @@ bool isNumericString(String testStr){
   return tempBool;
 }
 
+void changeVoltageRange(char * serLine){
+  char * pch;
+  pch = strtok(serLine, ", ");
+  uint8_t inputCount = 0;
+  int chan;
+  int tempVoltRange;
+  String tempStr;
+  while (pch != NULL){
+    inputCount++;
+    if (inputCount == 1){ // Expecting Channel Number Input
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        chan = tempStr.toInt();
+        // Ensure channel reading is between 0 and 7
+        if ( chan < 0 || chan > 7 ){
+          break;
+        }
+      }
+      else{ // break out while loop if channel is not a number
+        break;
+      }
+    }
+    else if (inputCount == 2){ // Expecting Voltage Range Number Input
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        tempVoltRange = tempStr.toInt();
+        if (tempVoltRange < 0 || tempVoltRange > 3){
+          break;
+        }
+        else{
+          i2cDevs[chan].controlByte = ResolveControlByte(chan, tempVoltRange);
+          i2cDevs[chan].useControlByte = true;
+          i2cDevs[chan].voltageRange = tempVoltRange;
+        }
+      }
+      else{ // break if voltage range is not a number
+        break;
+      }
+    }
+    pch = strtok(NULL, ", ");
+  }
+}
+
+void customizeI2CDeviceAddress(char * serLine){
+int tempI2CDevAddr;
+  char * pch;
+  int chan;
+  pch = strtok(serLine, ", ");
+  uint8_t inputCount = 0;
+  String tempStr;
+  while (pch != NULL){
+    inputCount++;
+    if (inputCount == 1){ // Expecting Channel Number Input
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        chan = tempStr.toInt();
+        // Ensure channel reading is between 0 and 7
+        if ( chan < 0 || chan > 7 ){
+          break;
+        }
+      }
+      else{ // break out while loop if channel is not a number
+        break;
+      }
+    }
+    else if (inputCount == 2){ // Expecting I2C Device Address between 0-255
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        tempI2CDevAddr = tempStr.toInt();
+        // Ensure I2C Device Address is between 0 and 255;
+        if ( tempI2CDevAddr < 0 || tempI2CDevAddr > 255 ){
+          break;
+        }
+        else{
+          i2cDevs[chan].deviceAddress = tempI2CDevAddr;
+          i2cDevs[chan].useControlByte = false;
+          i2cDevs[chan].controlByte = 0;
+          i2cDevs[chan].voltageRange = 4;
+        }
+      }
+      else{ // break out while loop if channel is not a number
+        break;
+      }
+    }
+    pch = strtok(NULL, ", ");
+  }
+}
+
+void insertDaqReading(char * serLine){
+  /*
+     * This reads the rest of the INSERT_DAQ_READING command.
+     * It is expected that the command is of the form:
+     *      <6,CHANNEL_NUMBER,VALUE_TO_WRITE>
+     *
+     * -6 is in the first position as it is the command number for INSERT_DAQ_READING
+     * -CHANNEL_NUMBER and VALUE_TO_WRITE are integers
+     * -CHANNEL_NUMBER must be between 0 and 7
+     *
+     * By this point, serLine should just be "CHANNEL_NUMBER,VALUE_TO_WRITE"
+     */
+  char * pch;
+  pch = strtok(serLine, ", ");
+  uint8_t inputCount = 0;
+  int chan;
+  String tempStr;
+  while (pch != NULL){
+    inputCount++;
+    if (inputCount == 1){
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        chan = tempStr.toInt();
+        // Ensure channel reading is between 0 and 7
+        if ( chan < 0 || chan > 7 ){
+          break;
+        }
+      }
+      else{ // break out while loop if channel is not a number
+        break;
+      }
+    }
+    else if (inputCount == 2){
+      if (isNumericString(String(pch))){
+        tempStr = String(pch);
+        daqReadings[chan] = tempStr.toInt();
+      }
+      else{
+        break;
+      }
+    }
+    pch = strtok(NULL, ", ");
+  }
+}
+
+
+
 void ParseSerialInput(){
+  /*
+   * This strips the first character off of the serial input string.
+   * This character should be a number that corresponds to a command.
+   * The value of the character is compared with command numbers and
+   * then the corresponding command is carried out in another function.
+   */
   String commandStr = serFullLine.substring(0,1);
   uint8_t command = commandStr.toInt();
   serFullLine.remove(0,2);
   char * serLine = serFullLine.c_str();
-  char * pch;
   if ( command == START_WRITE ){
     Serial.println("Start Write Default");
   }
@@ -186,40 +330,10 @@ void ParseSerialInput(){
     Serial.println("Stop Write");
   }
   else if ( command == CHANGE_VOLTAGE_RANGE ){
-    Serial.println("Change DAQ127 Channel Voltage Range");
-    pch = strtok(serLine, ", ");
-    uint8_t inputCount = 0;
-    int chan;
-    String tempStr;
-    while (pch != NULL){
-      inputCount++;
-      if (inputCount == 1){
-        if (isNumericString(String(pch))){       
-          tempStr = String(pch);
-          chan = tempStr.toInt();
-          // Ensure channel reading is between 0 and 7
-          if ( chan < 0 || chan > 7 ){
-            break;
-          }
-        }
-        else{ // break out while loop if channel is not a number
-          break;
-        }
-      }
-      else if (inputCount == 2){
-        if (isNumericString(String(pch))){
-          tempStr = String(pch);
-          daqReadings[chan] = tempStr.toInt();
-        }
-        else{
-          break;
-        }
-      }
-      pch = strtok(NULL, ", ");
-    }
+    changeVoltageRange(serLine);
   }
   else if ( command == CUSTOMIZE_I2C_DEVICE ){
-    Serial.println("Custom I2C Device");
+    customizeI2CDeviceAddress(serLine);
   }
   else if ( command == PRINT_DAQ_READINGS ){
     printDaqReadings();
@@ -228,52 +342,9 @@ void ParseSerialInput(){
     printI2CDeviceSettings();
   }
   else if ( command == INSERT_DAQ_READING ){
-    /*
-     * This reads the rest of the INSERT_DAQ_READING command.
-     * It is expected that the command is of the form:
-     *      <6,CHANNEL_NUMBER,VALUE_TO_WRITE>
-     *      
-     * -6 is in the first position as it is the command number for INSERT_DAQ_READING
-     * -CHANNEL_NUMBER and VALUE_TO_WRITE are integers
-     * -CHANNEL_NUMBER must be between 0 and 7
-     * 
-     * By this point, serLine should just be "CHANNEL_NUMBER,VALUE_TO_WRITE"
-     */
-    pch = strtok(serLine, ", ");
-    uint8_t inputCount = 0;
-    int chan;
-    String tempStr;
-    while (pch != NULL){
-      inputCount++;
-      if (inputCount == 1){
-        if (isNumericString(String(pch))){       
-          tempStr = String(pch);
-          chan = tempStr.toInt();
-          // Ensure channel reading is between 0 and 7
-          if ( chan < 0 || chan > 7 ){
-            break;
-          }
-        }
-        else{ // break out while loop if channel is not a number
-          break;
-        }
-      }
-      else if (inputCount == 2){
-        if (isNumericString(String(pch))){
-          tempStr = String(pch);
-          daqReadings[chan] = tempStr.toInt();
-        }
-        else{
-          break;
-        }
-      }
-      pch = strtok(NULL, ", ");
-    }
+    insertDaqReading(serLine);
   }
 }
-
-
-
 
 
 void setup() {
@@ -309,7 +380,5 @@ void loop() {
     serFullLine = "";
     serDoneReading = false;
   }
-
-
 
 }

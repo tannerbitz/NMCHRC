@@ -3,15 +3,13 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import pyqtSlot, Qt
+from PyQt5.QtCore import Qt
 import PyQt5
 from PyQt5 import QtCore
 import serial.tools.list_ports
 import pyqtgraph as pg
 import time
 import numpy as np
-import threading
-import queue
 import os
 import csv
 
@@ -73,105 +71,19 @@ def writeToPatientFile(testType, flexion, ankleAngle, zeroVal):
     csvwrite.writerow([testType, flexion, ankleAngle, zeroVal])
     f.close()
 
-def updateSerialGlobals(ser):
-    while True:
-        # try:
-        if READFLAG == 0:
-            ser.flush()
-            ser.flushInput()
-            ser.flushOutput()
-            serStr = str(ser.readline().decode())
-            serVals = serStr.split(",")
-            try:
-                if len(serVals) == 8:
-                    temp = float(serVals[TORQUE_CHANNEL])
-                    if (float(serVals[PRBS_CHANNEL]) > 1000): #if signal is HIGH, this value should be ~ 2048
-                        tempTarget = 1
-                    else:                                     #if signal is LOW, this value should be ~ 0
-                        tempTarget = 0
-                    global tcurr
-                    tcurr = temp
-                    global targetcurr
-                    if tempTarget != targetcurr:
-                        targetcurr = tempTarget
-            except ValueError:
-                pass
-            except:
-                print("ERROR IN THREAD: {}".format(sys.exc_info()[0]))
-                break
-        # except:
-        #     print("There was an exception on thread")
-        #     print("Unexpected error: {}".format(sys.exc_info()[0]))
-        #     pass
 
-    # except serial.serialutil.SerialException:
-    #     pass
-        #     ex.table_widget.tab1.resetSer()
-        #     ex.table_widget.tab2.resetSer()
-        #     ex.table_widget.tab4.resetSer()
-        #     break
 
 def initSerial():
     if COM_PORT == "Not Set" or TORQUE_CHANNEL == "Not Set":
         return -5
     try:
         ser = serial.Serial(COM_PORT, baudrate=115200, timeout=1)
-        tryCount = 0
-        thisDoesntWork = True
-        while (tryCount < 5):
-            try:
-                # ser.flush()
-                s = ser.readline()
-                t = s.decode('ascii')
-                break
-            except UnicodeDecodeError:
-                tryCount = tryCount + 1
-                pass
-
-        while (len(t)==0):
-            s = ser.readline()
-            try:
-                t = s.decode('ascii')
-            except UnicodeDecodeError:
-                pass
-
-        if (t.find("NMCHR LAB DAQ") != -1):
-            ser.write(b'S')
-            s = ser.readline()
-            t = s.decode('ascii')
-            if (t.find("ENTER FILENAME") != -1):
-                ser.write(b'startuptextfile.txt')
-                time.sleep(.05)
-                ser.write(b'Q')
-                tor_readings = []
-                for i in range(0, 100):
-                    serVals = ser.readline().decode().split(',')
-                    if len(serVals) == 8:
-                        tor_readings.append(float(serVals[TORQUE_CHANNEL]))
-                if len(tor_readings) == 0:
-                    #No data was added to tor_readings
-                    return -3
-                if all(tor == 0 for tor in tor_readings):
-                    return -4
-                print("List of Threads")
-                print(threading.enumerate())
-                print("Number of Threads: " + str(threading.active_count()))
-                thread = threading.Thread(target=updateSerialGlobals, args=(ser, ), daemon=True, name='IOTHREAD')
-                thread.start()
-                print("List of Threads")
-                print(threading.enumerate())
-                print("Number of Threads: " + str(threading.active_count()))
-
-                print('Serial Initialized')
-                return ser
-        else:
-            return -1
+        return ser
     except serial.SerialException:
-        return -2 #
+        return -2
 
-#Initial Serial
+# Global serial object
 ser = initSerial()
-
 
 
 
@@ -782,12 +694,6 @@ class VRTWindow(QWidget):
 
     def startTest(self):
 
-        #Exit if IOTHREAD is not active
-        threadList = [t.name for t in threading.enumerate()]
-        if "IOTHREAD" not in threadList:
-            self.makeMsgbox("IOTHREAD is not active. Please restart serial")
-            return
-
         #Exit if Flexion is not selected
         if self.flexionButtonChecked() == False:
             self.makeMsgbox("Please Select Flexion Direction")
@@ -824,11 +730,6 @@ class VRTWindow(QWidget):
         endTime = startTime + runTime
         zero_lst = []
 
-        #Exit if IOTHREAD is not active
-        threadList = [t.name for t in threading.enumerate()]
-        if "IOTHREAD" not in threadList:
-            self.makeMsgbox("IOTHREAD is not active. Please restart serial")
-            return
 
         while (time.time() < endTime):
             zero_lst.append(tcurr)
@@ -842,10 +743,7 @@ class VRTWindow(QWidget):
         self.ZERO_VAL = np.mean(zero_lst_np)
         print("Zero Value: {}".format(self.ZERO_VAL))
 
-        # Disable Serial Reading in Thread
-        global READFLAG
-        READFLAG = 1
-        time.sleep(0.1)
+
 
 
         # Send Command To DAQ to Start Logging to SD Card
@@ -854,11 +752,6 @@ class VRTWindow(QWidget):
         ser.flushOutput()
         ser.write(b'S')
 
-        #Exit if IOTHREAD is not active
-        threadList = [t.name for t in threading.enumerate()]
-        if "IOTHREAD" not in threadList:
-            self.makeMsgbox("IOTHREAD is not active. Please restart serial")
-            return
 
         # Expecting 'ENTER FILENAME' string from DAQ
         s = ser.readline()
@@ -874,8 +767,6 @@ class VRTWindow(QWidget):
         ser.flushOutput()
         ser.write(bytes(vrt_fname, 'utf-8'))
 
-        #Re-enable serial reading in thread
-        READFLAG = 0
 
         #start running test
         startTime = time.time()
@@ -901,18 +792,12 @@ class VRTWindow(QWidget):
         # Set Voluntary Response Test Progressbar to 0 (Test Finished)
         self.prg_vrt.setValue(0)
 
-        #Disable serial reading in thread
-        READFLAG = 1
-        time.sleep(0.1)
 
         #Send Command To DAQ to Stop Logging to SD Card
         ser.flush()
         ser.flushInput()
         ser.flushOutput()
         ser.write(b'Q')
-
-        #Re-enable serial reading in thread
-        READFLAG = 0
 
 
         print('Started writing to file:' + str(vrt_fname))
@@ -1324,10 +1209,6 @@ class ZeroWindow(QWidget):
         ZEROTBL['DF00'] = self.ZERO_VAL
         print("Zero Value: {}".format(self.ZERO_VAL))
 
-        #Disable Serial Reading in Thread
-        global READFLAG
-        READFLAG = 1
-        time.sleep(0.1)
 
         #Send command to DAQ to start writing MVC file
         ser.flush()
@@ -1368,8 +1249,6 @@ class ZeroWindow(QWidget):
         ser.flushOutput()
         ser.write(b'Q')
 
-        #Re-enable Serial Reading in Thread
-        READFLAG = 0
 
         #Update tables and write to patient file
         self.populateZeroTable()
@@ -1524,11 +1403,6 @@ class ZeroWindow(QWidget):
 
     def startTest(self):
 
-        #Disable serial reading in Thread
-        global READFLAG
-        READFLAG = 1
-        time.sleep(0.1)
-
         ser.flush()
         ser.flushInput()
         ser.flushOutput()
@@ -1560,8 +1434,6 @@ class ZeroWindow(QWidget):
         ser.flushOutput()
         ser.write(b'Q')
 
-        #Re-enable serial read in thread
-        READFLAG = 0
 
 
 

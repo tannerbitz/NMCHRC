@@ -27,7 +27,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>200</width>
+          <width>175</width>
           <height>0</height>
          </size>
         </property>
@@ -254,7 +254,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="tabWidgetPage1">
          <attribute name="title">
@@ -548,7 +548,7 @@
                     <item>
                      <layout class="QVBoxLayout" name="verticalLayout_18">
                       <item>
-                       <widget class="QGroupBox" name="groupBox_17">
+                       <widget class="QGroupBox" name="groupbox_mvcflexion">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                           <horstretch>0</horstretch>
@@ -899,7 +899,7 @@
                     <item>
                      <layout class="QVBoxLayout" name="verticalLayout_10">
                       <item>
-                       <widget class="QGroupBox" name="groupBox_14">
+                       <widget class="QGroupBox" name="g">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                           <horstretch>0</horstretch>
@@ -967,7 +967,7 @@
                        </widget>
                       </item>
                       <item>
-                       <widget class="QGroupBox" name="groupBox_13">
+                       <widget class="QGroupBox" name="groupbox_volreflexflexion">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                           <horstretch>0</horstretch>

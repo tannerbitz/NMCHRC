@@ -64,7 +64,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Patient Number</string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -99,7 +99,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Ref Sig Channel</string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -134,7 +134,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Meas Sig Channel </string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -169,7 +169,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Serial Port</string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>
@@ -204,7 +204,7 @@
                  </font>
                 </property>
                 <property name="text">
-                 <string>Serial Not Connected</string>
+                 <string/>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignCenter</set>

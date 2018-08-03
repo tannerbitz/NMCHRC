@@ -12,7 +12,8 @@ enum Commands{
   CUSTOMIZE_I2C_DEVICE = 4,
   CHANGE_VOLTAGE_RANGE = 5,
   INSERT_DAQ_READING = 6,
-  RESET_I2C_DEVICES = 7
+  RESET_I2C_DEVICES = 7,
+  IS_SDCARD_INSERTED = 8
 };
 
 // DAQ127 Channel Voltage Ranges
@@ -351,7 +352,7 @@ void insertDaqReading(char * serLine){
   }
 }
 
-int readCount = 0;
+
 
 void writeToSdCard(){
   // Create a comma delimited string and write to file
@@ -364,9 +365,8 @@ void writeToSdCard(){
           daqReadings[4],
           daqReadings[5],
           daqReadings[6],
-          readCount);
+          daqReadings[7]);
   file.println(daqReadingsStr);
-  readCount = 0;
 }
 
 
@@ -573,6 +573,14 @@ void ParseSerialInput(){
   else if ( cmd == RESET_I2C_DEVICES ){
     ResetDefaultI2CDevices();
   }
+  else if ( cmd == IS_SDCARD_INSERTED ){
+    if(!sdEx.begin()){
+      Serial.print("<False>");
+    }
+    else{
+      Serial.print("<True>");
+    }
+  }
   delete serLine;
 }
 
@@ -645,6 +653,5 @@ void loop() {
       }
     }
     daqReadings[chan] = tempData;
-    readCount++;
   }
 }

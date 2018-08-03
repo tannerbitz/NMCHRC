@@ -6,11 +6,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import serial.tools.list_ports
 import pyqtgraph as pg
 import numpy as np
-import platform
-if (platform.system() == 'Linux' or platform.system() == 'Windows'):
-    import serial
-elif platform.system() == 'Darwin':
-    from serial import serial
+import serial
+import datetime
+import time
 
 def getComPorts():
     tempPorts = []
@@ -108,6 +106,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._patientnumber = tempInt
                 self.lbl_patientnumber.setText("{}".format(self._patientnumber))
                 self.lbl_patientnumbererror.setText("")
+                self.completeMvcTrialFilename()
             else:
                 self._patientnumber = None
                 self.lbl_patientnumber.setText("")
@@ -133,6 +132,73 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_serialstatus.setText("Connected")
             except serial.SerialException as e:
                 self.lbl_serialstatus.setText("Error Connecting")
+
+    def setmvctrialflexion(self, btn_mvcflexion):
+        tempStr = btn_mvcflexion.text()
+        if ( tempStr == "Plantarflexion" ):
+            self._mvctrialflexion = "PF"
+        elif (tempStr == "Dorsiflexion" ):
+            self._mvctrialflexion = "DF"
+        self.completeMvcTrialFilename()
+
+    def completeMvcTrialFilename(self):
+        if (self._patientnumber is not None and self._mvctrialflexion is not None):
+            self._mvctrialfilename = "Patient{}_MVC_{}.csv".format(self._patientnumber, self._mvctrialflexion)
+            self.lbl_mvcmeasurementfilename.setText(self._mvctrialfilename)
+        else:
+            self._mvctrialfilename = None
+            self.lbl_mvcmeasurementfilename.setText("Complete Settings")
+
+    def startMvcTrial(self):
+        # Exit routine if settings aren't complete
+        if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
+            self.lbl_mvctriallivenotes.setText("Complete Settings")
+            return
+
+        # Check if serial is connected
+        if self._ser is None:
+            self.lbl_mvctriallivenotes.setText("Connect Serial Before Proceeding")
+            return
+        elif isinstance(self._ser, serial.Serial):
+            self._ser.write(b'<8>')
+            time.sleep(0.02)
+            readStr = self._ser.read(self._ser.in_waiting)
+            readStr = readStr.decode('ascii')
+            readStr = readStr.strip('<>')
+            print(readStr)
+            print(readStr=="False")
+            # Check if sd card is inserted
+            if (readStr == "False"):
+                self.lbl_mvctriallivenotes.setText("Insert SD Card")
+                return
+        else:
+            self.lbl_mvctriallivenotes.setText("Something has gone very badly...")
+            return
+
+        # Start Writing Process
+        self._ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
+        n = datetime.datetime.now()
+        startStr = "<0,{},{},{},{},{},{},{}".format(self._mvctrialfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
+        bStartStr = str.encode(startStr)
+        self._ser.write(bStartStr)
+        if not (self._ser.in_waiting == 0):
+            tempStr = self._ser.read(self._ser.in_waiting)
+            tempStr = tempStr.decode('ascii')
+            self.lbl_mvctriallivenotes.setText(tempStr)
+            return
+        self.lbl_mvctriallivenotes.setText("Flex in 3")
+        time.sleep(1)
+        self.lbl_mvctriallivenotes.setText("Flex in 2")
+        time.sleep(1)
+        self.lbl_mvctriallivenotes.setText("Flex in 1")
+        time.sleep(1)
+        self._ser.write(b'<6,6,1>')  # Insert Value into 6th channel of daq reading for post-process flag
+        self.lbl_mvctriallivenotes.setText("Gooooo!!!!!!!!!!!!")
+        time.sleep(5)
+        self._ser.write(b'<1>')
+        self.lbl_mvctriallivenotes.setText("Done")
+        time.sleep(1)
+        self.lbl_mvctriallivenotes.setText("")
 
     def customizeSetupTab(self):
         # Expand table widget column
@@ -190,6 +256,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rbtn_volreflex5df.setText(u' 5\N{DEGREE SIGN} DF')
         self.rbtn_volreflex10df.setText(u'10\N{DEGREE SIGN} DF')
 
+        # Setup MVC Trial Flexion Button Group
+        self.mvctrialflexionbuttongroup = QButtonGroup(self)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementpf)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementdf)
+        self.mvctrialflexionbuttongroup.buttonClicked.connect(self.setmvctrialflexion)
+
     def connectButtonsInSetupTab(self):
         self.btn_selectcomport.clicked.connect(self.selectComPort)
         self.btn_refreshcomlist.clicked.connect(self.refreshComPortList)
@@ -197,8 +269,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_selectmeasuredsignal.clicked.connect(self.selectMeasuredSignalChannel)
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
         self.btn_resetserial.clicked.connect(self.resetSerial)
-
-
+        self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
 
     def startSettingsTab(self):
         # Complete GUI Programming

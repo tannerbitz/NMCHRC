@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import serial.tools.list_ports
 import pyqtgraph as pg
 import numpy as np
+import serial
 
 def getComPorts():
     tempPorts = []

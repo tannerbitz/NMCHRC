@@ -48,6 +48,8 @@ class MainWindow(QtWidgets.QMainWindow):
     _mvctrialfilename = None
     _mvctable = {'pf': None, 'df': None}
     _mvcfiletoimport = None
+    _mvctrialcounter = 0
+
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -143,7 +145,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def completeMvcTrialFilename(self):
         if (self._patientnumber is not None and self._mvctrialflexion is not None):
-            self._mvctrialfilename = "Patient{}_MVC_{}.csv".format(self._patientnumber, self._mvctrialflexion)
+            self._mvctrialfilename = "Patient{}_MVC_{}.txt".format(self._patientnumber, self._mvctrialflexion)
             self.lbl_mvcmeasurementfilename.setText(self._mvctrialfilename)
         else:
             self._mvctrialfilename = None
@@ -165,8 +167,6 @@ class MainWindow(QtWidgets.QMainWindow):
             readStr = self._ser.read(self._ser.in_waiting)
             readStr = readStr.decode('ascii')
             readStr = readStr.strip('<>')
-            print(readStr)
-            print(readStr=="False")
             # Check if sd card is inserted
             if (readStr == "False"):
                 self.lbl_mvctriallivenotes.setText("Insert SD Card")
@@ -186,18 +186,19 @@ class MainWindow(QtWidgets.QMainWindow):
             tempStr = tempStr.decode('ascii')
             self.lbl_mvctriallivenotes.setText(tempStr)
             return
+
         self.lbl_mvctriallivenotes.setText("Flex in 3")
-        time.sleep(1)
+        PyQt5.QtTest.QTest.qWait(1000)
         self.lbl_mvctriallivenotes.setText("Flex in 2")
-        time.sleep(1)
+        PyQt5.QtTest.QTest.qWait(1000)
         self.lbl_mvctriallivenotes.setText("Flex in 1")
-        time.sleep(1)
+        PyQt5.QtTest.QTest.qWait(1000)
         self._ser.write(b'<6,6,1>')  # Insert Value into 6th channel of daq reading for post-process flag
         self.lbl_mvctriallivenotes.setText("Gooooo!!!!!!!!!!!!")
-        time.sleep(5)
+        PyQt5.QtTest.QTest.qWait(5000)
         self._ser.write(b'<1>')
         self.lbl_mvctriallivenotes.setText("Done")
-        time.sleep(1)
+        PyQt5.QtTest.QTest.qWait(1000)
         self.lbl_mvctriallivenotes.setText("")
 
     def customizeSetupTab(self):
@@ -272,6 +273,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
 
     def startSettingsTab(self):
+
         # Complete GUI Programming
         self.customizeSetupTab()
         self.customizeVoluntaryReflexMeasurementTab()

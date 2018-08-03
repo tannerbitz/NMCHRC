@@ -6,7 +6,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets, uic
 import serial.tools.list_ports
 import pyqtgraph as pg
 import numpy as np
-import serial
+import platform
+if (platform.system() == 'Linux' or platform.system() == 'Windows'):
+    import serial
+elif platform.system() == 'Darwin':
+    from serial import serial
 
 def getComPorts():
     tempPorts = []

@@ -50,6 +50,11 @@ class MainWindow(QtWidgets.QMainWindow):
     _mvcfiletoimport = None
     _mvctrialcounter = 0
 
+    # MVC import
+    _mvcdffile = None
+    _mvcpffile = None
+    _serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
+
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -201,6 +206,78 @@ class MainWindow(QtWidgets.QMainWindow):
         PyQt5.QtTest.QTest.qWait(1000)
         self.lbl_mvctriallivenotes.setText("")
 
+    def getMvcFile(self):
+        #Open filedialog box
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        files, _ = QFileDialog.getOpenFileNames(self, "QFileDialog.getOpenFileNames()", "",
+                                                "Text Files (*.txt)", options=options)
+        if files:
+            for f in files:
+                if (f.find('MVC') == -1):
+                    self.lbl_mvctriallivenotes.setText("Please Select MVC File")
+                else:
+                    tempfullfilepath = f
+                    f = f.split('/')
+                    f = f[-1] # now f is just the filename
+                    tempfilename = f
+                    f = f.strip('.txt')
+                    f = f.split('_')
+                    tempflexion = f[-1]
+                    temppatientnumber = f[0]
+                    temppatientnumber = int(temppatientnumber.strip("Patient"))
+                    if ( temppatientnumber != self._patientnumber):
+                        self.lbl_mvctriallivenotes.setText("Patient Number does not match.  Import aborted")
+                    else:
+                        if (tempflexion == 'DF'):
+                            self._mvcdffile = tempfullfilepath
+                            self.lbl_mvctriallivenotes.setText("")
+                            self.lineedit_mvcmanual.setText(tempfilename)
+                        elif (tempflexion == 'PF'):
+                            self._mvcpffile = tempfullfilepath
+                            self.lbl_mvctriallivenotes.setText("")
+                            self.lineedit_mvcmanual.setText(tempfilename)
+                        else:
+                            self.lbl_mvctriallivenotes.setText("Filename does not specify flexion")
+
+    def importMvcFiles(self):
+        if self._measuredsignalchannel is None:
+            self.lbl_mvctriallivenotes.setText('Set Measured Signal Channel')
+            return
+        tempfilestoimport = []
+        if self._mvcdffile is not None:
+            tempfilestoimport.append(self._mvcdffile)
+        if self._mvcpffile is not None:
+            tempfilestoimport.append(self._mvcpffile)
+
+        if (len(tempfilestoimport)==0):
+            self.lbl_mvctriallivenotes.setText('Choose file to import')
+            return
+
+        for f in tempfilestoimport:
+            tempdata = np.loadtxt(fname=f, delimiter=',')
+            flagcol = tempdata[:,6]
+            measuredsigdata = tempdata[:, self._measuredsignalchannel]
+            # get index where 'rest' period end and MVC period starts
+            restendindex = None
+            for i in range(0, len(flagcol)):
+                if (flagcol[i] == 1):
+                    restendindex = i
+                    break
+            if restendindex is None:
+                self.lbl_mvctriallivenotes.setText('No MVC Start Flag Found')
+            else:
+                restmeasurements = measuredsigdata[0:restendindex-1]
+                mvcmeasaurements = measuredsigdata[restendindex:]
+                zerolevel = int(restmeasurements.mean())
+                mvcserialval = int(mvcmeasaurements.max() - zerolevel)
+                if f.find('PF') != -1:
+                    self._mvctable['pf'] = mvcserialval*self._serval2torqueNm
+                    self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(self._mvctable['pf'],2))))
+                elif f.find('DF') != -1:
+                    self._mvctable['df'] = mvcserialval*self._serval2torqueNm
+                    self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(self._mvctable['df'],2))))
+
     def customizeSetupTab(self):
         # Expand table widget column
         self.tablewidget_mvc.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -271,6 +348,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
         self.btn_resetserial.clicked.connect(self.resetSerial)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
+        self.btn_setmvcmanual.clicked.connect(self.getMvcFile)
+        self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
+
 
     def startSettingsTab(self):
 

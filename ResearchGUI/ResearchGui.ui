@@ -781,7 +781,7 @@
                           </layout>
                          </item>
                          <item>
-                          <widget class="QPushButton" name="pushButton">
+                          <widget class="QPushButton" name="btn_importmvcfiles">
                            <property name="sizePolicy">
                             <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                              <horstretch>0</horstretch>
@@ -842,6 +842,16 @@
                                <string>MVC (N-m)</string>
                               </property>
                              </column>
+                             <item row="0" column="0">
+                              <property name="textAlignment">
+                               <set>AlignCenter</set>
+                              </property>
+                             </item>
+                             <item row="1" column="0">
+                              <property name="textAlignment">
+                               <set>AlignCenter</set>
+                              </property>
+                             </item>
                             </widget>
                            </item>
                           </layout>

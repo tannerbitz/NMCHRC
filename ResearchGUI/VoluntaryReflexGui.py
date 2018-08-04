@@ -48,13 +48,18 @@ class MainWindow(QtWidgets.QMainWindow):
     _mvctrialfilename = None
     _mvctable = {'pf': None, 'df': None}
     _mvcfiletoimport = None
-    _mvctrialcounter = 0
 
     # MVC import
     _mvcdffile = None
     _mvcpffile = None
+
+    #Conversion Constants
     _serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
 
+    # Voluntary Reflex Trial data
+    _volreflexankleposition = None
+    _volreflexflexion = None
+    _volreflexfilename = None
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -114,6 +119,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_patientnumber.setText("{}".format(self._patientnumber))
                 self.lbl_patientnumbererror.setText("")
                 self.completeMvcTrialFilename()
+                self.completeVoluntaryReflexFilename()
             else:
                 self._patientnumber = None
                 self.lbl_patientnumber.setText("")
@@ -140,7 +146,7 @@ class MainWindow(QtWidgets.QMainWindow):
             except serial.SerialException as e:
                 self.lbl_serialstatus.setText("Error Connecting")
 
-    def setmvctrialflexion(self, btn_mvcflexion):
+    def setMvcTrialFlexion(self, btn_mvcflexion):
         tempStr = btn_mvcflexion.text()
         if ( tempStr == "Plantarflexion" ):
             self._mvctrialflexion = "PF"
@@ -282,6 +288,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # Expand table widget column
         self.tablewidget_mvc.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
+        # Setup MVC Trial Flexion Button Group
+        self.mvctrialflexionbuttongroup = QButtonGroup(self)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementpf)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementdf)
+        self.mvctrialflexionbuttongroup.buttonClicked.connect(self.setMvcTrialFlexion)
+
     def customizeVoluntaryReflexMeasurementTab(self):
         # Add pyqtgraph plot
 
@@ -334,11 +346,65 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rbtn_volreflex5df.setText(u' 5\N{DEGREE SIGN} DF')
         self.rbtn_volreflex10df.setText(u'10\N{DEGREE SIGN} DF')
 
-        # Setup MVC Trial Flexion Button Group
-        self.mvctrialflexionbuttongroup = QButtonGroup(self)
-        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementpf)
-        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementdf)
-        self.mvctrialflexionbuttongroup.buttonClicked.connect(self.setmvctrialflexion)
+        # Group Ankle Position RadioButtons
+        self.volreflexanklepositionbuttongroup = QButtonGroup(self)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex5pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex10pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex15pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex20pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex0)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex5df)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex10df)
+        self.volreflexanklepositionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexAnklePosition)
+
+        # Group Voluntary Reflex Flexion RadioButtons
+        self.volreflexflexionbuttongroup = QButtonGroup(self)
+        self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexdf)
+        self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexpf)
+        self.volreflexflexionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexFlexion)
+
+    def setVoluntaryReflexAnklePosition(self, btn_volreflexankleposition):
+        tempAnklePosition = btn_volreflexankleposition.objectName()
+        if ( tempAnklePosition == "rbtn_volreflex0" ):
+            self._volreflexankleposition = "Neutral"
+        elif ( tempAnklePosition == "rbtn_volreflex5df"):
+            self._volreflexankleposition = "5DF"
+        elif ( tempAnklePosition == "rbtn_volreflex10df"):
+            self._volreflexankleposition = "10DF"
+        elif ( tempAnklePosition == "rbtn_volreflex5pf"):
+            self._volreflexankleposition = "5PF"
+        elif ( tempAnklePosition == "rbtn_volreflex10pf"):
+            self._volreflexankleposition = "10PF"
+        elif ( tempAnklePosition == "rbtn_volreflex15pf"):
+            self._volreflexankleposition = "15PF"
+        elif ( tempAnklePosition == "rbtn_volreflex20pf"):
+            self._volreflexankleposition = "20PF"
+        else:
+            self._volreflexflexion = None
+        self.completeVoluntaryReflexFilename()
+
+    def setVoluntaryReflexFlexion(self, btn_volreflexflexion):
+        tempFlexion = btn_volreflexflexion.text()
+        if ( tempFlexion == "Plantarflexion" ):
+            self._volreflexflexion = "PF"
+        elif (tempFlexion == "Dorsiflexion" ):
+            self._volreflexflexion = "DF"
+        else:
+            self._volreflexflexion = None
+        self.completeVoluntaryReflexFilename()
+
+    def completeVoluntaryReflexFilename(self):
+        # Check if Ankle Position, Flexion and Patient Number are set. If not, exit routine
+        if (self._volreflexankleposition is None or self._volreflexflexion is None or self._patientnumber is None):
+            self.lbl_volreflexfilename.setText("Complete Settings")
+            return
+
+        self._volreflexfilename = "Patent{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, self._volreflexflexion)
+        self.lbl_volreflexfilename.setText(self._volreflexfilename)
+
+    def startVoluntaryReflexTrail(self):
+        self.lbl_volreflexlivenotes.setText("Trial Started")
+        self.prog_volreflextrial.setValue(100)
 
     def connectButtonsInSetupTab(self):
         self.btn_selectcomport.clicked.connect(self.selectComPort)
@@ -350,6 +416,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
         self.btn_setmvcmanual.clicked.connect(self.getMvcFile)
         self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
+        self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
 
 
     def startSettingsTab(self):

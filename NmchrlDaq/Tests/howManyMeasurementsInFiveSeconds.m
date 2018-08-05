@@ -1,7 +1,7 @@
-data = load('TestDaqReadingsNoExternalI2C.txt');
+data = load('Patient6_MVC_DF.txt');
 
 data7 = data(:,7);
-currNum = data(1);
+currNum = data7(1);
 cnt = 0;
 for i = 1:length(data7)
     cnt = cnt + 1;
@@ -11,6 +11,7 @@ for i = 1:length(data7)
         cnt = 0;
     end
 end
+fprintf("%d was found %d times\n", currNum, cnt)
 
 %% readings per cycle
 readsPerCycle = data(:,8);

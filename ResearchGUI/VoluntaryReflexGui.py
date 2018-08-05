@@ -49,6 +49,8 @@ class MainWindow(QtWidgets.QMainWindow):
     _mvctable = {'pf': None, 'df': None}
     _mvcfiletoimport = None
     _mvctrialcounter = 0
+    _mvctrialrepetition = 0
+    _mvctimer = None
 
     # MVC import
     _mvcdffile = None
@@ -140,7 +142,7 @@ class MainWindow(QtWidgets.QMainWindow):
             except serial.SerialException as e:
                 self.lbl_serialstatus.setText("Error Connecting")
 
-    def setmvctrialflexion(self, btn_mvcflexion):
+    def setMvcTrialFlexion(self, btn_mvcflexion):
         tempStr = btn_mvcflexion.text()
         if ( tempStr == "Plantarflexion" ):
             self._mvctrialflexion = "PF"
@@ -156,6 +158,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self._mvctrialfilename = None
             self.lbl_mvcmeasurementfilename.setText("Complete Settings")
 
+    def getSerialResponse(self):
+        endtime = time.time() + 0.5
+        serialstring = ""
+        while (time.time() < endtime):
+            newchar = self._ser.read().decode()
+            serialstring += newchar
+            if (newchar == '>'):
+                break
+        return serialstring.strip('<>')
+
+
     def startMvcTrial(self):
         # Exit routine if settings aren't complete
         if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
@@ -167,14 +180,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_mvctriallivenotes.setText("Connect Serial Before Proceeding")
             return
         elif isinstance(self._ser, serial.Serial):
+            self._ser.flushInput()
             self._ser.write(b'<8>')
-            time.sleep(0.02)
-            readStr = self._ser.read(self._ser.in_waiting)
-            readStr = readStr.decode('ascii')
-            readStr = readStr.strip('<>')
+            serialstring = self.getSerialResponse()
             # Check if sd card is inserted
-            if (readStr == "False"):
+            if (serialstring == "False"):
                 self.lbl_mvctriallivenotes.setText("Insert SD Card")
+                return
+            elif (serialstring == ""):
+                self.lbl_mvctriallivenotes.setText("No SD Card Response")
                 return
         else:
             self.lbl_mvctriallivenotes.setText("Something has gone very badly...")
@@ -186,25 +200,50 @@ class MainWindow(QtWidgets.QMainWindow):
         startStr = "<0,{},{},{},{},{},{},{}".format(self._mvctrialfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
         bStartStr = str.encode(startStr)
         self._ser.write(bStartStr)
-        if not (self._ser.in_waiting == 0):
-            tempStr = self._ser.read(self._ser.in_waiting)
-            tempStr = tempStr.decode('ascii')
-            self.lbl_mvctriallivenotes.setText(tempStr)
+        serialstring = self.getSerialResponse()
+        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
+            self.lbl_mvctriallivenotes.setText(serialstring)
             return
 
-        self.lbl_mvctriallivenotes.setText("Flex in 3")
-        PyQt5.QtTest.QTest.qWait(1000)
-        self.lbl_mvctriallivenotes.setText("Flex in 2")
-        PyQt5.QtTest.QTest.qWait(1000)
-        self.lbl_mvctriallivenotes.setText("Flex in 1")
-        PyQt5.QtTest.QTest.qWait(1000)
-        self._ser.write(b'<6,6,1>')  # Insert Value into 6th channel of daq reading for post-process flag
-        self.lbl_mvctriallivenotes.setText("Gooooo!!!!!!!!!!!!")
-        PyQt5.QtTest.QTest.qWait(5000)
-        self._ser.write(b'<1>')
-        self.lbl_mvctriallivenotes.setText("Done")
-        PyQt5.QtTest.QTest.qWait(1000)
-        self.lbl_mvctriallivenotes.setText("")
+        self._mvctrialcounter = 0
+        self._mvctrialrepetition = 0
+        self._mvctimer = QtCore.QTimer()
+        self._mvctimer.timeout.connect(self.mvcTrialHandler)
+        self._mvctimer.start(1000)
+
+    def mvcTrialHandler(self):
+        firstrestend = 5
+        firstflexend = firstrestend + 5
+        secondrestend = firstflexend + 15
+        secondflexend = secondrestend + 5
+        thirdrestend = secondflexend + 15
+        thirdflexend = thirdrestend + 5
+        if (self._mvctrialcounter < firstrestend):
+            self._ser.write(b'<6,6,0>')
+            self.lbl_mvctriallivenotes.setText("Flex in {}".format(firstrestend-self._mvctrialcounter))
+        elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
+            self._ser.write(b'<6,6,1>')
+            self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
+        elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
+            self._ser.write(b'<6,6,0>')
+            self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(secondrestend-self._mvctrialcounter))
+        elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
+            self._ser.write(b'<6,6,1>')
+            self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
+        elif (self._mvctrialcounter >= secondflexend and self._mvctrialcounter < thirdrestend):
+            self._ser.write(b'<6,6,0>')
+            self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(thirdrestend-self._mvctrialcounter))
+        elif (self._mvctrialcounter >= thirdrestend and self._mvctrialcounter < thirdflexend):
+            self._ser.write(b'<6,6,1>')
+            self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(thirdflexend - self._mvctrialcounter))
+        else:
+            self._ser.write(b'<1>')
+            self.lbl_mvctriallivenotes.setText("Done")
+            self._mvctimer.stop()
+            self._mvctimer.deleteLater()
+
+        self._mvctrialcounter += 1
+
 
     def getMvcFile(self):
         #Open filedialog box
@@ -255,32 +294,62 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         for f in tempfilestoimport:
+            if (f.find('DF') != -1):
+                tempflexion = 'DF'
+            elif (f.find('PF') != -1):
+                tempflexion = 'PF'
+            else:
+                self.lbl_mvctriallivenotes.setText("Flexion direction was not found in file during import")
+                return
             tempdata = np.loadtxt(fname=f, delimiter=',')
             flagcol = tempdata[:,6]
             measuredsigdata = tempdata[:, self._measuredsignalchannel]
-            # get index where 'rest' period end and MVC period starts
-            restendindex = None
-            for i in range(0, len(flagcol)):
-                if (flagcol[i] == 1):
-                    restendindex = i
-                    break
-            if restendindex is None:
-                self.lbl_mvctriallivenotes.setText('No MVC Start Flag Found')
-            else:
-                restmeasurements = measuredsigdata[0:restendindex-1]
-                mvcmeasaurements = measuredsigdata[restendindex:]
+            # get indices where 'rest' or 'flex' periods end
+            rest_flex_ending_indices = [0]
+            currentflag = flagcol[0]
+            for i in range(1, len(flagcol)):
+                if (flagcol[i] != currentflag):
+                    currentflag = flagcol[i]
+                    rest_flex_ending_indices.append(i)
+                elif (i==(len(flagcol)-1)):
+                    rest_flex_ending_indices.append(i+1)
+            for i in range(1, len(rest_flex_ending_indices)):
+                if ((rest_flex_ending_indices[i] - rest_flex_ending_indices[i-1]) < 4000):
+                    self.lbl_mvctriallivenotes.setText("Rest or flex period was less than 4000 readings. Check data")
+                    return
+            mvcserialvals = []
+            for i in range(0,3):
+                restbeginindex = rest_flex_ending_indices[i*2]
+                restendindex = rest_flex_ending_indices[i*2 + 1]
+                flexbeginindex = rest_flex_ending_indices[i*2 + 1]
+                flexendindex = rest_flex_ending_indices[i*2 + 2]
+                restmeasurements = measuredsigdata[restbeginindex+500:restendindex-500]  # limit rest measurements just in case the patient flexed early or late
+                mvcmeasaurements = measuredsigdata[flexbeginindex:flexendindex]
                 zerolevel = int(restmeasurements.mean())
-                mvcserialval = int(mvcmeasaurements.max() - zerolevel)
-                if f.find('PF') != -1:
-                    self._mvctable['pf'] = mvcserialval*self._serval2torqueNm
-                    self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(self._mvctable['pf'],2))))
-                elif f.find('DF') != -1:
-                    self._mvctable['df'] = mvcserialval*self._serval2torqueNm
-                    self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(self._mvctable['df'],2))))
+                if (tempflexion == 'DF'):
+                    mvcserialvals.append(int(mvcmeasaurements.max() - zerolevel))
+                elif (tempflexion == 'PF'):
+                    mvcserialvals.append(int(mvcmeasaurements.min() - zerolevel))
+
+            if (tempflexion == 'DF'):
+                mvcserialval = abs(max(mvcserialvals))
+                self._mvctable['pf'] = mvcserialval*self._serval2torqueNm
+                self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(self._mvctable['pf'],2))))
+            elif (tempflexion == 'PF'):
+                mvcserialval = abs(min(mvcserialvals))
+                self._mvctable['df'] = mvcserialval*self._serval2torqueNm
+                self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(self._mvctable['df'],2))))
+
 
     def customizeSetupTab(self):
         # Expand table widget column
         self.tablewidget_mvc.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+        # Setup MVC Trial Flexion Button Group
+        self.mvctrialflexionbuttongroup = QButtonGroup(self)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementpf)
+        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementdf)
+        self.mvctrialflexionbuttongroup.buttonClicked.connect(self.setMvcTrialFlexion)
 
     def customizeVoluntaryReflexMeasurementTab(self):
         # Add pyqtgraph plot
@@ -334,11 +403,65 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rbtn_volreflex5df.setText(u' 5\N{DEGREE SIGN} DF')
         self.rbtn_volreflex10df.setText(u'10\N{DEGREE SIGN} DF')
 
-        # Setup MVC Trial Flexion Button Group
-        self.mvctrialflexionbuttongroup = QButtonGroup(self)
-        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementpf)
-        self.mvctrialflexionbuttongroup.addButton(self.rbtn_mvcmeasurementdf)
-        self.mvctrialflexionbuttongroup.buttonClicked.connect(self.setmvctrialflexion)
+        # Group Ankle Position RadioButtons
+        self.volreflexanklepositionbuttongroup = QButtonGroup(self)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex5pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex10pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex15pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex20pf)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex0)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex5df)
+        self.volreflexanklepositionbuttongroup.addButton(self.rbtn_volreflex10df)
+        self.volreflexanklepositionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexAnklePosition)
+
+        # Group Voluntary Reflex Flexion RadioButtons
+        self.volreflexflexionbuttongroup = QButtonGroup(self)
+        self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexdf)
+        self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexpf)
+        self.volreflexflexionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexFlexion)
+
+    def setVoluntaryReflexAnklePosition(self, btn_volreflexankleposition):
+        tempAnklePosition = btn_volreflexankleposition.objectName()
+        if ( tempAnklePosition == "rbtn_volreflex0" ):
+            self._volreflexankleposition = "Neutral"
+        elif ( tempAnklePosition == "rbtn_volreflex5df"):
+            self._volreflexankleposition = "5DF"
+        elif ( tempAnklePosition == "rbtn_volreflex10df"):
+            self._volreflexankleposition = "10DF"
+        elif ( tempAnklePosition == "rbtn_volreflex5pf"):
+            self._volreflexankleposition = "5PF"
+        elif ( tempAnklePosition == "rbtn_volreflex10pf"):
+            self._volreflexankleposition = "10PF"
+        elif ( tempAnklePosition == "rbtn_volreflex15pf"):
+            self._volreflexankleposition = "15PF"
+        elif ( tempAnklePosition == "rbtn_volreflex20pf"):
+            self._volreflexankleposition = "20PF"
+        else:
+            self._volreflexflexion = None
+        self.completeVoluntaryReflexFilename()
+
+    def setVoluntaryReflexFlexion(self, btn_volreflexflexion):
+        tempFlexion = btn_volreflexflexion.text()
+        if ( tempFlexion == "Plantarflexion" ):
+            self._volreflexflexion = "PF"
+        elif (tempFlexion == "Dorsiflexion" ):
+            self._volreflexflexion = "DF"
+        else:
+            self._volreflexflexion = None
+        self.completeVoluntaryReflexFilename()
+
+    def completeVoluntaryReflexFilename(self):
+        # Check if Ankle Position, Flexion and Patient Number are set. If not, exit routine
+        if (self._volreflexankleposition is None or self._volreflexflexion is None or self._patientnumber is None):
+            self.lbl_volreflexfilename.setText("Complete Settings")
+            return
+
+        self._volreflexfilename = "Patent{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, self._volreflexflexion)
+        self.lbl_volreflexfilename.setText(self._volreflexfilename)
+
+    def startVoluntaryReflexTrail(self):
+        self.lbl_volreflexlivenotes.setText("Trial Started")
+        self.prog_volreflextrial.setValue(100)
 
     def connectButtonsInSetupTab(self):
         self.btn_selectcomport.clicked.connect(self.selectComPort)
@@ -350,7 +473,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
         self.btn_setmvcmanual.clicked.connect(self.getMvcFile)
         self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
-
+        self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
 
     def startSettingsTab(self):
 

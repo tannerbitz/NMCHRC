@@ -55,8 +55,14 @@ class MainWindow(QtWidgets.QMainWindow):
     # MVC import
     _mvcdffile = None
     _mvcpffile = None
+
+    #Conversion Constants
     _serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
 
+    # Voluntary Reflex Trial data
+    _volreflexankleposition = None
+    _volreflexflexion = None
+    _volreflexfilename = None
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -116,6 +122,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_patientnumber.setText("{}".format(self._patientnumber))
                 self.lbl_patientnumbererror.setText("")
                 self.completeMvcTrialFilename()
+                self.completeVoluntaryReflexFilename()
             else:
                 self._patientnumber = None
                 self.lbl_patientnumber.setText("")

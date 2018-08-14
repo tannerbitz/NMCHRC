@@ -3,7 +3,7 @@
 #include <Wire.h>
 
 // Gloabl Data
-int deviceAddress = 0b00100001;
+const uint8_t MCP4725_ADDR = 0x60;
 float freq = 1000;
 float Ts = 1/freq;
 double volt;
@@ -6028,7 +6028,11 @@ uint16_t msine[] = {2810,
 void writeSinusoid()
 {
   volt_write = msine[sample];
-  analogWrite(DAC0, volt_write);
+  Wire.beginTransmission(MCP4725_ADDR);
+  Wire.write(64);
+  Wire.write(volt_write >> 4);
+  Wire.write((volt_write & 15) << 4);
+  Wire.endTransmission();
   sample++;
   if (sample==msineLength){
     sample = 0;
@@ -6038,10 +6042,9 @@ void writeSinusoid()
 
 void setup()
 {
-  // Setup analog out pin
-  pinMode (DAC0,OUTPUT);
-  analogWriteResolution(12); // 12 bit resolution  
-
+  // Setup I2C Connection for MCP4725 Device
+  Wire.begin();
+  
   //Setup interrupt
   uint32_t interruptTime = round(Ts*1000000);
   Timer3.attachInterrupt(writeSinusoid);

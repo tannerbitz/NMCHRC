@@ -57,6 +57,7 @@ bool writeTimestampFlag = false;
 int daqReadings[8] = {0, 0, 0, 0, 0, 0, 0,0};
 char daqReadingsStr[80];
 I2CDevice i2cDevs[8];
+uint16_t daqReadingCount = 0;
 
 // Serial Input Variables
 char serInput;
@@ -357,7 +358,7 @@ void insertDaqReading(char * serLine){
 void writeToSdCard(){
   // Create a comma delimited string and write to file
   sprintf(daqReadingsStr,
-          "%d,%d,%d,%d,%d,%d,%d,%d",
+          "%d,%d,%d,%d,%d,%d,%d,%d,%d",
           daqReadings[0],
           daqReadings[1],
           daqReadings[2],
@@ -365,8 +366,10 @@ void writeToSdCard(){
           daqReadings[4],
           daqReadings[5],
           daqReadings[6],
-          daqReadings[7]);
+          daqReadings[7],
+          daqReadingCount);
   file.println(daqReadingsStr);
+  daqReadingCount = 0;
 }
 
 
@@ -635,7 +638,7 @@ void loop() {
     }
     uint8_t bytesRequested = 2;
     Wire.requestFrom(i2cDevs[chan].deviceAddress, bytesRequested);
-    uint16_t tempData = 0;
+    int tempData = 0;
     for (int iByte=0; iByte<bytesRequested; iByte++){
       if (Wire.available()){
         tempData = (tempData << 8) + Wire.read();
@@ -653,5 +656,6 @@ void loop() {
       }
     }
     daqReadings[chan] = tempData;
+    daqReadingCount++;
   }
 }

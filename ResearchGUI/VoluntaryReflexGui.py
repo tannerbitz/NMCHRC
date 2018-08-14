@@ -3,6 +3,7 @@
 import sys
 from PyQt5.QtWidgets import *
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
+from PyQt5.QtCore import QThread, pyqtSignal
 import serial.tools.list_ports
 import pyqtgraph as pg
 import numpy as np
@@ -24,29 +25,96 @@ def isStringAnInt(s):
     except ValueError:
         return False
 
+# Serial Object
+ser = None
+serialbaudrate = 115200
+serialtimeout = 1
+serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
+
+# Global Data
+referencesignalchannel = None
+measuredsignalchannel = None
+topborder = None
+bottomborder = None
+mvctable = {'pf': None, 'df': None}
+percentmvc = 0.2
+volreflexflexion = None
+
+def getSerialResponse():
+    global ser
+    endtime = time.time() + 0.5
+    serialstring = ""
+    while (time.time() < endtime):
+        newchar = ser.read().decode()
+        serialstring += newchar
+        if (newchar == '>'):
+            break
+    return serialstring.strip('<>')
 
 
+class VolReflexTrialThread(QThread):
+    supplyDaqReadings = pyqtSignal(float, float, float)
+    printToVolReflexLabel = pyqtSignal(str)
+
+    def __init__(self):
+        QThread.__init__(self)
+
+    def run(self):
+        global measuredsignalchannel
+        global referencesignalchannel
+        self.printToVolReflexLabel.emit("Rest Phase")
+        starttime = time.time()
+        zeroduration = 5
+        zerocount = 0
+        zerolevel = 0
+        endtime = starttime + zeroduration
+        while (time.time() < endtime):
+            ser.write(b'<2>')
+            serialvals = getSerialResponse().split(',')
+            measuredval = int(serialvals[measuredsignalchannel])
+            zerocount = zerocount + 1
+            zerolevel = zerolevel + (measuredval - zerolevel)/zerocount
+            progressbarval = round(100*(time.time() - starttime)/zeroduration)
+            self.supplyDaqReadings.emit(0, 0, progressbarval)
+
+        zerolevel = int(zerolevel)
+        if (volreflexflexion == "DF"):
+            maxreferenceval = percentmvc*mvctable['df']
+        elif (volreflexflexion == "PF"):
+            maxreferenceval = -percentmvc*mvctable['pf']
+        starttime = time.time()
+        trialduration = 30
+        endtime = starttime + trialduration
+        self.printToVolReflexLabel.emit("Match the Reference Line")
+        while (time.time() < endtime):
+            ser.write(b'<2>')
+            serialvals = getSerialResponse().split(',')
+            measuredval = serval2torqueNm*(int(serialvals[measuredsignalchannel]) - zerolevel)
+            referenceval = int(serialvals[referencesignalchannel])
+            if (measuredval < bottomborder):
+                measuredval = bottomborder
+            elif (measuredval > topborder):
+                measuredval = topborder
+            referenceval = ((referenceval - (-2048))/4095)*maxreferenceval  # this assumes A/D measurements from the 12-bit DAQ
+            progressbarval = round(100*(time.time() - starttime)/trialduration)
+            self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
+
+        self.supplyDaqReadings.emit(0,0,0)
+        self.printToVolReflexLabel.emit("Done")
+        ser.write(b'<1>')
 
 class MainWindow(QtWidgets.QMainWindow):
 
     # Class Data
 
-    # Serial Object
-    _ser = None
-    _serialbaudrate = 115200
-    _serialtimeout = 1
-
     # Setting Data
     _patientnumber = None
-    _referencesignalchannel = None
-    _measuredsignalchannel = None
     _comport = None
     _serialstatus = None
 
     # MVC Trial Data
     _mvctrialflexion = None
     _mvctrialfilename = None
-    _mvctable = {'pf': None, 'df': None}
     _mvcfiletoimport = None
     _mvctrialcounter = 0
     _mvctrialrepetition = 0
@@ -56,13 +124,10 @@ class MainWindow(QtWidgets.QMainWindow):
     _mvcdffile = None
     _mvcpffile = None
 
-    #Conversion Constants
-    _serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
-
     # Voluntary Reflex Trial data
     _volreflexankleposition = None
-    _volreflexflexion = None
     _volreflexfilename = None
+
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -97,20 +162,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lbl_comport.setText(self._comport)
 
     def selectReferenceSignalChannel(self):
+        global referencesignalchannel
         channelobj = self.list_referencesignal.selectedItems()
         for i in list(channelobj):
             selectedchannel = str(i.text())
         selectedchannelparts = selectedchannel.split(" ")
-        self._referencesignalchannel = int(selectedchannelparts[1])
-        self.lbl_referencesignal.setText("Channel {}".format(self._referencesignalchannel))
+        referencesignalchannel = int(selectedchannelparts[1])
+        self.lbl_referencesignal.setText("Channel {}".format(referencesignalchannel))
 
     def selectMeasuredSignalChannel(self):
+        global measuredsignalchannel
         channelobj = self.list_measuredsignal.selectedItems()
         for i in list(channelobj):
             selectedchannel = str(i.text())
         selectedchannelparts = selectedchannel.split(" ")
-        self._measuredsignalchannel = int(selectedchannelparts[1])
-        self.lbl_measuredsignal.setText("Channel {}".format(self._measuredsignalchannel))
+        measuredsignalchannel = int(selectedchannelparts[1])
+        self.lbl_measuredsignal.setText("Channel {}".format(measuredsignalchannel))
 
     def setPatientNumber(self):
         tempStr = self.lineedit_patientnumber.text()
@@ -133,18 +200,19 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_patientnumbererror.setText("Patient Number Must Be An Integer")
 
     def resetSerial(self):
+        global ser
         if (self._comport is None):
             self.lbl_serialstatus.setText("Select COM Port")
-        elif ((self._comport is not None) and (isinstance(self._ser, serial.Serial))):
+        elif ((self._comport is not None) and (isinstance(ser, serial.Serial))):
             try:
-                self._ser.close()
-                self._ser = serial.Serial(port=self._comport, baudrate=self._serialbaudrate, timeout=self._serialtimeout)
+                ser.close()
+                ser = serial.Serial(port=self._comport, baudrate=serialbaudrate, timeout=serialtimeout)
                 self.lbl_serialstatus.setText("Connected")
             except serial.SerialException as e:
                 self.lbl_serialstatus.setText("Error Connecting")
-        elif ((self._comport is not None) and (not isinstance(self._ser, serial.Serial))):
+        elif ((self._comport is not None) and (not isinstance(ser, serial.Serial))):
             try:
-                self._ser = serial.Serial(port=self._comport, baudrate=self._serialbaudrate, timeout=self._serialtimeout)
+                ser = serial.Serial(port=self._comport, baudrate=serialbaudrate, timeout=serialtimeout)
                 self.lbl_serialstatus.setText("Connected")
             except serial.SerialException as e:
                 self.lbl_serialstatus.setText("Error Connecting")
@@ -165,31 +233,22 @@ class MainWindow(QtWidgets.QMainWindow):
             self._mvctrialfilename = None
             self.lbl_mvcmeasurementfilename.setText("Complete Settings")
 
-    def getSerialResponse(self):
-        endtime = time.time() + 0.5
-        serialstring = ""
-        while (time.time() < endtime):
-            newchar = self._ser.read().decode()
-            serialstring += newchar
-            if (newchar == '>'):
-                break
-        return serialstring.strip('<>')
-
 
     def startMvcTrial(self):
+        global ser
         # Exit routine if settings aren't complete
         if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
             self.lbl_mvctriallivenotes.setText("Complete Settings")
             return
 
         # Check if serial is connected
-        if self._ser is None:
+        if ser is None:
             self.lbl_mvctriallivenotes.setText("Connect Serial Before Proceeding")
             return
-        elif isinstance(self._ser, serial.Serial):
-            self._ser.flushInput()
-            self._ser.write(b'<8>')
-            serialstring = self.getSerialResponse()
+        elif isinstance(ser, serial.Serial):
+            ser.flushInput()
+            ser.write(b'<8>')
+            serialstring = getSerialResponse()
             # Check if sd card is inserted
             if (serialstring == "False"):
                 self.lbl_mvctriallivenotes.setText("Insert SD Card")
@@ -202,12 +261,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         # Start Writing Process
-        self._ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
+        ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
         n = datetime.datetime.now()
-        startStr = "<0,{},{},{},{},{},{},{}".format(self._mvctrialfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
+        startStr = "<0,{},{},{},{},{},{},{}>".format(self._mvctrialfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
         bStartStr = str.encode(startStr)
-        self._ser.write(bStartStr)
-        serialstring = self.getSerialResponse()
+        ser.write(bStartStr)
+        serialstring = getSerialResponse()
         if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
             self.lbl_mvctriallivenotes.setText(serialstring)
             return
@@ -226,25 +285,25 @@ class MainWindow(QtWidgets.QMainWindow):
         thirdrestend = secondflexend + 15
         thirdflexend = thirdrestend + 5
         if (self._mvctrialcounter < firstrestend):
-            self._ser.write(b'<6,6,0>')
+            ser.write(b'<6,6,0>')
             self.lbl_mvctriallivenotes.setText("Flex in {}".format(firstrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
-            self._ser.write(b'<6,6,1>')
+            ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
-            self._ser.write(b'<6,6,0>')
+            ser.write(b'<6,6,0>')
             self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(secondrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
-            self._ser.write(b'<6,6,1>')
+            ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondflexend and self._mvctrialcounter < thirdrestend):
-            self._ser.write(b'<6,6,0>')
+            ser.write(b'<6,6,0>')
             self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(thirdrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= thirdrestend and self._mvctrialcounter < thirdflexend):
-            self._ser.write(b'<6,6,1>')
+            ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(thirdflexend - self._mvctrialcounter))
         else:
-            self._ser.write(b'<1>')
+            ser.write(b'<1>')
             self.lbl_mvctriallivenotes.setText("Done")
             self._mvctimer.stop()
             self._mvctimer.deleteLater()
@@ -287,7 +346,9 @@ class MainWindow(QtWidgets.QMainWindow):
                             self.lbl_mvctriallivenotes.setText("Filename does not specify flexion")
 
     def importMvcFiles(self):
-        if self._measuredsignalchannel is None:
+        global measuredsignalchannel
+        global mvctable
+        if measuredsignalchannel is None:
             self.lbl_mvctriallivenotes.setText('Set Measured Signal Channel')
             return
         tempfilestoimport = []
@@ -310,7 +371,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 return
             tempdata = np.loadtxt(fname=f, delimiter=',')
             flagcol = tempdata[:,6]
-            measuredsigdata = tempdata[:, self._measuredsignalchannel]
+            measuredsigdata = tempdata[:, measuredsignalchannel]
             # get indices where 'rest' or 'flex' periods end
             rest_flex_ending_indices = [0]
             currentflag = flagcol[0]
@@ -340,12 +401,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if (tempflexion == 'DF'):
                 mvcserialval = abs(max(mvcserialvals))
-                self._mvctable['pf'] = mvcserialval*self._serval2torqueNm
-                self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(self._mvctable['pf'],2))))
+                mvctable['pf'] = mvcserialval*serval2torqueNm
+                self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(mvctable['pf'],2))))
             elif (tempflexion == 'PF'):
                 mvcserialval = abs(min(mvcserialvals))
-                self._mvctable['df'] = mvcserialval*self._serval2torqueNm
-                self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(self._mvctable['df'],2))))
+                mvctable['df'] = mvcserialval*serval2torqueNm
+                self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
 
 
     def customizeSetupTab(self):
@@ -376,29 +437,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plt.setRange(xRange=(0, 1), yRange=(-1, 1), padding=0.0)
 
         # Init lines
-        self.target_line = pg.PlotCurveItem()
-        self.curr_tor_line = pg.PlotCurveItem()
+        self.reference_line = pg.PlotCurveItem()
+        self.measured_line = pg.PlotCurveItem()
         self.zero_line = pg.PlotCurveItem()
 
         # Define line properties and set properties
-        target_pen = pg.mkPen(color='c', width=30, style=QtCore.Qt.SolidLine)
-        curr_tor_pen = pg.mkPen(color='r', width=10, style=QtCore.Qt.SolidLine)
+        reference_line_pen = pg.mkPen(color='c', width=30, style=QtCore.Qt.SolidLine)
+        measured_line_pen = pg.mkPen(color='r', width=10, style=QtCore.Qt.SolidLine)
         zero_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
 
-        self.curr_tor_line.setPen(curr_tor_pen)
+        self.measured_line.setPen(measured_line_pen)
         self.zero_line.setPen(zero_line_pen)
-        self.target_line.setPen(target_pen)
+        self.reference_line.setPen(reference_line_pen)
 
         # Set lines in initial position
         xdata = np.array([0, 1])
         ydata = np.array([0, 0])
-        self.target_line.setData(x=xdata, y=ydata)
-        self.curr_tor_line.setData(x=xdata, y=ydata)
+        self.reference_line.setData(x=xdata, y=ydata)
+        self.measured_line.setData(x=xdata, y=ydata)
         self.zero_line.setData(x=xdata, y=ydata)
 
         # Add lines to plot
-        self.plt.addItem(self.target_line)
-        self.plt.addItem(self.curr_tor_line)
+        self.plt.addItem(self.reference_line)
+        self.plt.addItem(self.measured_line)
         self.plt.addItem(self.zero_line)
 
         # Redo Ankle Position Radiobutton text
@@ -444,31 +505,115 @@ class MainWindow(QtWidgets.QMainWindow):
         elif ( tempAnklePosition == "rbtn_volreflex20pf"):
             self._volreflexankleposition = "20PF"
         else:
-            self._volreflexflexion = None
+            self._volreflexankleposition = None
         self.completeVoluntaryReflexFilename()
 
     def setVoluntaryReflexFlexion(self, btn_volreflexflexion):
+        global topborder
+        global bottomborder
+        global mvctable
+        global percentmvc
+        global volreflexflexion
         tempFlexion = btn_volreflexflexion.text()
         if ( tempFlexion == "Plantarflexion" ):
-            self._volreflexflexion = "PF"
+            volreflexflexion = "PF"
+            if (mvctable['pf'] is None):
+                self.lbl_volreflexlivenotes.setText('Import PF MVC Trial Readings')
+            else:
+                #Set Plot Ranges for Test
+                refsignalmax = 0
+                refsignalmin = -(percentmvc*mvctable['pf'])
+                refsignalspan = abs(refsignalmax - refsignalmin)
+                topborder = refsignalmax+0.3*refsignalspan
+                bottomborder = refsignalmin-0.6*refsignalspan
+                self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         elif (tempFlexion == "Dorsiflexion" ):
-            self._volreflexflexion = "DF"
+            volreflexflexion = "DF"
+            if (mvctable['df'] is None):
+                self.lbl_volreflexlivenotes.setText('Import DF MVC Trial Readings')
+            else:
+                #Set Plot Ranges for Test
+                refsignalmax = percentmvc*mvctable['df']
+                refsignalmin = 0
+                refsignalspan = abs(refsignalmax - refsignalmin)
+                topborder = refsignalmax+0.6*refsignalspan
+                bottomborder = refsignalmin-0.3*refsignalspan
+                self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         else:
-            self._volreflexflexion = None
+            volreflexflexion = None
         self.completeVoluntaryReflexFilename()
 
     def completeVoluntaryReflexFilename(self):
+        global volreflexflexion
         # Check if Ankle Position, Flexion and Patient Number are set. If not, exit routine
-        if (self._volreflexankleposition is None or self._volreflexflexion is None or self._patientnumber is None):
+        if (self._volreflexankleposition is None or volreflexflexion is None or self._patientnumber is None):
             self.lbl_volreflexfilename.setText("Complete Settings")
             return
 
-        self._volreflexfilename = "Patent{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, self._volreflexflexion)
+        self._volreflexfilename = "Patent{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
         self.lbl_volreflexfilename.setText(self._volreflexfilename)
 
     def startVoluntaryReflexTrail(self):
-        self.lbl_volreflexlivenotes.setText("Trial Started")
-        self.prog_volreflextrial.setValue(100)
+        global ser
+        global measuredsignalchannel
+        global referencesignalchannel
+        #Check Settings
+        if (self._volreflextrialthread.isRunning()):
+            self.lbl_volreflexlivenotes.setText("Thread Is Already Running")
+            return
+        self.lbl_volreflexlivenotes.setText("")
+        if (measuredsignalchannel is None):
+            self.lbl_volreflexlivenotes.setText("Set Measured Signal Channel")
+            return
+        if (referencesignalchannel is None):
+            self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
+            return
+        if not (isinstance(ser, serial.Serial)):
+            self.lbl_volreflexlivenotes.setText("Connect Serial Device")
+            return
+        if (self._volreflexankleposition is None):
+            self.lbl_volreflexlivenotes.setText("Set Ankle Positon")
+            return
+        if (volreflexflexion is None):
+            self.lbl_volreflexlivenotes.setText("Set Flexion")
+            return
+
+        # Ensure channels reading correct voltage Ranges
+        voltagerangecommand_measuredsignal = "<5,{},1>".format(measuredsignalchannel)   # assuems -5V to +5V readings
+        voltagerangecommand_referencesignal = "<5,{},0>".format(referencesignalchannel) # assumes 0-5V readings
+        ser.write(str.encode(voltagerangecommand_measuredsignal))
+        ser.write(str.encode(voltagerangecommand_referencesignal))
+        # Start Writing Process
+        ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
+        n = datetime.datetime.now()
+        startStr = "<0,{},{},{},{},{},{},{}>".format(self._volreflexfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
+        bStartStr = str.encode(startStr)
+        ser.write(bStartStr) #start writing to sd
+        serialstring = getSerialResponse()
+        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
+            self.lbl_volreflexlivenotes.setText(serialstring)
+            return
+        self._volreflextrialthread.start()
+
+    def initVoluntaryReflexTrialThread(self):
+        self._volreflextrialthread = VolReflexTrialThread()
+        self._volreflextrialthread.printToVolReflexLabel.connect(self.printToVolReflexLabel)
+        self._volreflextrialthread.supplyDaqReadings.connect(self.updateVolReflexPlot)
+
+    def updateVolReflexPlot(self, measuredval, referenceval, progressbarval):
+        #Update Progressbar
+        self.prog_volreflextrial.setValue(progressbarval)
+        self.prog_volreflextrial.update()
+
+        #Update Plot
+        self.reference_line.setData(x=np.array([0,1]),
+                                    y=np.array([referenceval, referenceval]))
+        self.measured_line.setData(x=np.array([0,1]),
+                                   y=np.array([measuredval, measuredval]))
+        self.plt.update()
+
+    def printToVolReflexLabel(self, inputStr):
+        self.lbl_volreflexlivenotes.setText(inputStr)
 
     def connectButtonsInSetupTab(self):
         self.btn_selectcomport.clicked.connect(self.selectComPort)
@@ -495,6 +640,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect buttons
         self.connectButtonsInSetupTab()
+
+        #Init Voluntary Reflex Trial Thread
+        self.initVoluntaryReflexTrialThread()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

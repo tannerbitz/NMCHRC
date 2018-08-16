@@ -70,7 +70,8 @@ class VolReflexTrialThread(QThread):
         endtime = starttime + zeroduration
         while (time.time() < endtime):
             ser.write(b'<2>')
-            serialvals = getSerialResponse().split(',')
+            serialstring = getSerialResponse()
+            serialvals = serialstring.split(',')
             measuredval = int(serialvals[measuredsignalchannel])
             zerocount = zerocount + 1
             zerolevel = zerolevel + (measuredval - zerolevel)/zerocount
@@ -83,7 +84,7 @@ class VolReflexTrialThread(QThread):
         elif (volreflexflexion == "PF"):
             maxreferenceval = -percentmvc*mvctable['pf']
         starttime = time.time()
-        trialduration = 30
+        trialduration = 60
         endtime = starttime + trialduration
         self.printToVolReflexLabel.emit("Match the Reference Line")
         while (time.time() < endtime):
@@ -95,7 +96,7 @@ class VolReflexTrialThread(QThread):
                 measuredval = bottomborder
             elif (measuredval > topborder):
                 measuredval = topborder
-            referenceval = ((referenceval - (-2048))/4095)*maxreferenceval  # this assumes A/D measurements from the 12-bit DAQ
+            referenceval = (referenceval/4095)*maxreferenceval  # this assumes A/D measurements from the 12-bit DAQ
             progressbarval = round(100*(time.time() - starttime)/trialduration)
             self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
@@ -550,7 +551,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_volreflexfilename.setText("Complete Settings")
             return
 
-        self._volreflexfilename = "Patent{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
+        self._volreflexfilename = "Patient{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
         self.lbl_volreflexfilename.setText(self._volreflexfilename)
 
     def startVoluntaryReflexTrail(self):

@@ -56,6 +56,7 @@ char * fname;
 bool writeTimestampFlag = false;
 int daqReadings[8] = {0, 0, 0, 0, 0, 0, 0,0};
 char daqReadingsStr[80];
+char daqReadingsSerialStr[80];
 I2CDevice i2cDevs[8];
 uint16_t daqReadingCount = 0;
 
@@ -134,6 +135,7 @@ void changeVoltageRange(char * serLine){
               break;
             case 3:
               i2cDevs[chan].voltageRange = NEG_TEN_TO_POS_TEN;
+	      break;
           }
         }
       }
@@ -295,8 +297,8 @@ void printDaqReadings(){
   /*
    * Print Comma Delimited DAQ Readings to Serial
    */
-  sprintf(daqReadingsStr,
-          "<%i,%i,%i,%i,%i,%i,%i,%i>",
+  sprintf(daqReadingsSerialStr,
+          "<%d,%d,%d,%d,%d,%d,%d,%d>",
           daqReadings[0],
           daqReadings[1],
           daqReadings[2],
@@ -305,7 +307,7 @@ void printDaqReadings(){
           daqReadings[5],
           daqReadings[6],
           daqReadings[7]);
-  Serial.print(daqReadingsStr);
+  Serial.print(daqReadingsSerialStr);
 }
 
 void insertDaqReading(char * serLine){
@@ -646,8 +648,10 @@ void loop() {
     }
     if (i2cDevs[chan].useControlByte){  // DAQ127 has 12 bit precision so need to discard 4 lsb's
       tempData = (tempData >> 4);
-      if (tempData > 2047){             // Convert to signed int
-        tempData = tempData - 4096;
+      if (i2cDevs[chan].voltageRange == NEG_FIVE_TO_POS_FIVE || i2cDevs[chan].voltageRange == NEG_TEN_TO_POS_TEN){
+        if (tempData > 2047){             // Convert to signed int
+          tempData = tempData - 4096;
+        }  
       }
     }
     else{                               // Expected that a 16 bit integer is being sent

@@ -128,6 +128,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # Voluntary Reflex Trial data
     _volreflexankleposition = None
     _volreflexfilename = None
+    _volreflexsinefreq = None
+    _volreflextrialnumber = None
 
 
     def __init__(self):
@@ -489,6 +491,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexpf)
         self.volreflexflexionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexFlexion)
 
+        # Group Voluntary Reflex Sinusoid Freqency RadioButtons
+        self.volreflexsinefreqbuttongroup = QButtonGroup(self)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreqna)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq1)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq2)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq3)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq4)
+        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq5)
+        self.volreflexsinefreqbuttongroup.buttonClicked.connect(self.setVoluntaryReflexSineFreq)
+
+        # Connect Trial Spinbox
+        self.spinboxtrialnumber.valueChanged.connect(self.setVoluntaryReflexTrialNumber)
+
+    def setVoluntaryReflexTrialNumber(self, newvalue):
+        if (newvalue == 0):
+            self._volreflextrialnumber = None
+        else:
+            self._volreflextrialnumber = int(newvalue)
+        self.completeVoluntaryReflexFilename()
+
+    def setVoluntaryReflexSineFreq(self, btn_volreflexsinefreq):
+        tempSineFreq = btn_volreflexsinefreq.text()
+        if (tempSineFreq == "N/A"):
+            self._volreflexsinefreq = None
+        else:
+            tempSineFreq = tempSineFreq.replace(" ", "")
+            self._volreflexsinefreq = tempSineFreq.replace(".", "-")
+        self.completeVoluntaryReflexFilename()
+
     def setVoluntaryReflexAnklePosition(self, btn_volreflexankleposition):
         tempAnklePosition = btn_volreflexankleposition.objectName()
         if ( tempAnklePosition == "rbtn_volreflex0" ):
@@ -551,7 +582,14 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_volreflexfilename.setText("Complete Settings")
             return
 
-        self._volreflexfilename = "Patient{}_VolReflex_AnklePos{}_{}.txt".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
+        self._volreflexfilename = "PatNo{}_VR_AnklePos{}_{}".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
+        # Optional parameters
+        if (self._volreflexsinefreq is not None):
+            self._volreflexfilename = self._volreflexfilename + "_Freq{}".format(self._volreflexsinefreq)
+        if (self._volreflextrialnumber is not None):
+            self._volreflexfilename = self._volreflexfilename + "_Trial{}".format(self._volreflextrialnumber)
+        # Finalize filename
+        self._volreflexfilename = self._volreflexfilename + ".txt"
         self.lbl_volreflexfilename.setText(self._volreflexfilename)
 
     def startVoluntaryReflexTrail(self):

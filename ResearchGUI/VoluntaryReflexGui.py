@@ -10,6 +10,7 @@ import numpy as np
 import serial
 import datetime
 import time
+from collections import deque
 
 def getComPorts():
     tempPorts = []
@@ -79,6 +80,7 @@ class VolReflexTrialThread(QThread):
             self.supplyDaqReadings.emit(0, 0, progressbarval)
 
         zerolevel = int(zerolevel)
+        measuredvalqueue = deque([0, 0, 0])
         if (volreflexflexion == "DF"):
             maxreferenceval = percentmvc*mvctable['df']
         elif (volreflexflexion == "PF"):
@@ -90,7 +92,9 @@ class VolReflexTrialThread(QThread):
         while (time.time() < endtime):
             ser.write(b'<2>')
             serialvals = getSerialResponse().split(',')
-            measuredval = serval2torqueNm*(int(serialvals[measuredsignalchannel]) - zerolevel)
+            measuredvalqueue.popleft()
+            measuredvalqueue.append(serval2torqueNm*(int(serialvals[measuredsignalchannel]) - zerolevel))
+            measuredval = np.mean(measuredvalqueue)
             referenceval = int(serialvals[referencesignalchannel])
             if (measuredval < bottomborder):
                 measuredval = bottomborder
@@ -686,4 +690,5 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
+    window.showFullScreen()
     sys.exit(app.exec_())

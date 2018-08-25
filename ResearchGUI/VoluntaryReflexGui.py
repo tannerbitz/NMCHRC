@@ -83,8 +83,16 @@ class VolReflexTrialThread(QThread):
         measuredvalqueue = deque([0, 0, 0])
         if (volreflexflexion == "DF"):
             maxreferenceval = percentmvc*mvctable['df']
+            minreferenceval = 0
+            referencevalspan = maxreferenceval - minreferenceval
         elif (volreflexflexion == "PF"):
-            maxreferenceval = -percentmvc*mvctable['pf']
+            maxreferenceval = 0
+            minreferenceval = percentmvc*mvctable['pf']
+            referencevalspan = maxreferenceval - minreferenceval
+        elif (volreflexflexion == "DFPF"):
+            maxreferenceval = percentmvc*np.mean([abs(mvctable['df']), abs(mvctable['pf'])])
+            minreferenceval = -maxreferenceval
+            referencevalspan = maxreferenceval - minreferenceval
         starttime = time.time()
         trialduration = 60
         endtime = starttime + trialduration
@@ -100,7 +108,7 @@ class VolReflexTrialThread(QThread):
                 measuredval = bottomborder
             elif (measuredval > topborder):
                 measuredval = topborder
-            referenceval = (referenceval/4095)*maxreferenceval  # this assumes A/D measurements from the 12-bit DAQ
+            referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
             progressbarval = round(100*(time.time() - starttime)/trialduration)
             self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
@@ -132,7 +140,7 @@ class MainWindow(QtWidgets.QMainWindow):
     # Voluntary Reflex Trial data
     _volreflexankleposition = None
     _volreflexfilename = None
-    _volreflexsinefreq = None
+    _volreflexreferencesignal = None
     _volreflextrialnumber = None
 
 
@@ -493,20 +501,33 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volreflexflexionbuttongroup = QButtonGroup(self)
         self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexdf)
         self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexpf)
+        self.volreflexflexionbuttongroup.addButton(self.rbtn_volreflexdfpf)
         self.volreflexflexionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexFlexion)
 
         # Group Voluntary Reflex Sinusoid Freqency RadioButtons
         self.volreflexsinefreqbuttongroup = QButtonGroup(self)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreqna)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq1)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq2)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq3)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq4)
-        self.volreflexsinefreqbuttongroup.addButton(self.radiobutton_sigfreq5)
-        self.volreflexsinefreqbuttongroup.buttonClicked.connect(self.setVoluntaryReflexSineFreq)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig0)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig1)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig2)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig3)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig4)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig5)
+        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig6)
+        self.volreflexsinefreqbuttongroup.buttonClicked.connect(self.setReferenceSignal)
 
         # Connect Trial Spinbox
         self.spinboxtrialnumber.valueChanged.connect(self.setVoluntaryReflexTrialNumber)
+
+    def minimizeWindow(self):
+        self.showNormal()
+        self.showMinimized()
+
+    def maximizeWindow(self):
+        self.showNormal()
+        self.showMaximized()
+
+    def closeWindow(self):
+        QApplication.quit()
 
     def setVoluntaryReflexTrialNumber(self, newvalue):
         if (newvalue == 0):
@@ -515,13 +536,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self._volreflextrialnumber = int(newvalue)
         self.completeVoluntaryReflexFilename()
 
-    def setVoluntaryReflexSineFreq(self, btn_volreflexsinefreq):
-        tempSineFreq = btn_volreflexsinefreq.text()
-        if (tempSineFreq == "N/A"):
-            self._volreflexsinefreq = None
+    def setReferenceSignal(self, btn_volreflexreferencesignal):
+        tempSineFreq = btn_volreflexreferencesignal.text()
+        if (tempSineFreq == "Other"):
+            self._volreflexreferencesignal = None
         else:
             tempSineFreq = tempSineFreq.replace(" ", "")
-            self._volreflexsinefreq = tempSineFreq.replace(".", "-")
+            self._volreflexreferencesignal = tempSineFreq.replace(".", "-")
         self.completeVoluntaryReflexFilename()
 
     def setVoluntaryReflexAnklePosition(self, btn_volreflexankleposition):
@@ -557,6 +578,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_volreflexlivenotes.setText('Import PF MVC Trial Readings')
             else:
                 #Set Plot Ranges for Test
+                self.lbl_trialflexionmvc.setText(str(mvctable['pf']))
                 refsignalmax = 0
                 refsignalmin = -(percentmvc*mvctable['pf'])
                 refsignalspan = abs(refsignalmax - refsignalmin)
@@ -569,10 +591,24 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_volreflexlivenotes.setText('Import DF MVC Trial Readings')
             else:
                 #Set Plot Ranges for Test
-                refsignalmax = percentmvc*mvctable['df']
-                refsignalmin = 0
+                self.lbl_trialflexionmvc.setText(str(mvctable['df']))
+                refsignalmax = 0
+                refsignalmin = -(percentmvc*mvctable['pf'])
                 refsignalspan = abs(refsignalmax - refsignalmin)
-                topborder = refsignalmax+0.6*refsignalspan
+                topborder = refsignalmax+0.3*refsignalspan
+                bottomborder = refsignalmin-0.6*refsignalspan
+                self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
+        elif (tempFlexion == "Dorsiflexion-Plantarflexion"):
+            volreflexflexion = "DFPF"
+            if (mvctable['pf'] is None or mvctable['df'] is None):
+                self.lbl_volreflexlivenotes.setText('Import DF and PF MVC Trial Readings')
+            else:
+                avgmvc = np.mean([mvctable['df'], mvctable['pf']])
+                self.lbl_trialflexionmvc.setText(str(avgmvc))
+                refsignalmax = percentmvc*avgmvc
+                refsignalmin = -percentmvc*avgmvc
+                refsignalspan = abs(refsignalmax - refsignalmin)
+                topborder = refsignalmax+0.3*refsignalspan
                 bottomborder = refsignalmin-0.3*refsignalspan
                 self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         else:
@@ -588,8 +624,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self._volreflexfilename = "PatNo{}_VR_AnklePos{}_{}".format(self._patientnumber, self._volreflexankleposition, volreflexflexion)
         # Optional parameters
-        if (self._volreflexsinefreq is not None):
-            self._volreflexfilename = self._volreflexfilename + "_Freq{}".format(self._volreflexsinefreq)
+        if (self._volreflexreferencesignal is not None):
+            self._volreflexfilename = self._volreflexfilename + "_{}".format(self._volreflexreferencesignal)
         if (self._volreflextrialnumber is not None):
             self._volreflexfilename = self._volreflexfilename + "_Trial{}".format(self._volreflextrialnumber)
         # Finalize filename
@@ -669,6 +705,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_setmvcmanual.clicked.connect(self.getMvcFile)
         self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
         self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
+        self.btn_minimize.clicked.connect(self.minimizeWindow)
+        self.btn_maximize.clicked.connect(self.maximizeWindow)
+        self.btn_close.clicked.connect(self.closeWindow)
 
     def startSettingsTab(self):
 

@@ -254,6 +254,66 @@
            </property>
           </spacer>
          </item>
+         <item>
+          <widget class="QFrame" name="frame">
+           <property name="frameShape">
+            <enum>QFrame::StyledPanel</enum>
+           </property>
+           <property name="frameShadow">
+            <enum>QFrame::Raised</enum>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_8">
+            <item>
+             <widget class="QPushButton" name="btn_minimize">
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Minimize</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_maximize">
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Maximize</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btn_close">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <pointsize>6</pointsize>
+                <weight>75</weight>
+                <bold>true</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Close</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>
@@ -991,20 +1051,43 @@
                         </property>
                         <layout class="QGridLayout" name="gridLayout_4">
                          <item row="0" column="0">
-                          <layout class="QGridLayout" name="gridLayout_3">
-                           <item row="1" column="0">
-                            <widget class="QRadioButton" name="rbtn_volreflexdf">
-                             <property name="text">
-                              <string>Dorsiflexion</string>
-                             </property>
-                            </widget>
-                           </item>
-                          </layout>
+                          <widget class="QRadioButton" name="rbtn_volreflexdf">
+                           <property name="text">
+                            <string>Dorsiflexion</string>
+                           </property>
+                          </widget>
                          </item>
-                         <item row="0" column="1">
+                         <item row="0" column="2">
                           <widget class="QRadioButton" name="rbtn_volreflexpf">
                            <property name="text">
                             <string>Plantarflexion</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="0" column="3">
+                          <widget class="QRadioButton" name="rbtn_volreflexdfpf">
+                           <property name="text">
+                            <string>Dorsiflexion-Plantarflexion</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="0">
+                          <widget class="QLabel" name="label">
+                           <property name="font">
+                            <font>
+                             <weight>50</weight>
+                             <bold>false</bold>
+                            </font>
+                           </property>
+                           <property name="text">
+                            <string>MVC (N-m)</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item row="1" column="2" colspan="2">
+                          <widget class="QLabel" name="lbl_trialflexionmvc">
+                           <property name="text">
+                            <string>Set Flexion</string>
                            </property>
                           </widget>
                          </item>
@@ -1014,49 +1097,115 @@
                       <item>
                        <widget class="QGroupBox" name="groupBox">
                         <property name="title">
-                         <string>Reference Signal Freq (Optional)</string>
+                         <string>Reference Signal (Optional)</string>
                         </property>
-                        <layout class="QGridLayout" name="gridLayout_10">
-                         <item row="1" column="0">
-                          <widget class="QRadioButton" name="radiobutton_sigfreq1">
-                           <property name="text">
-                            <string>0.25 Hz</string>
+                        <layout class="QHBoxLayout" name="horizontalLayout_6">
+                         <item>
+                          <widget class="QGroupBox" name="groupBox_14">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
                            </property>
+                           <property name="title">
+                            <string>Sinusoid</string>
+                           </property>
+                           <layout class="QGridLayout" name="gridLayout_3">
+                            <item row="6" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig5">
+                              <property name="text">
+                               <string>2.0 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="5" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig4">
+                              <property name="text">
+                               <string>1.25 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="4" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig3">
+                              <property name="text">
+                               <string>1.0 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="1" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig1">
+                              <property name="text">
+                               <string>0.25 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="2" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig2">
+                              <property name="text">
+                               <string>0.50 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                           </layout>
                           </widget>
                          </item>
-                         <item row="0" column="0">
-                          <widget class="QRadioButton" name="radiobutton_sigfreqna">
-                           <property name="text">
-                            <string>N/A</string>
+                         <item>
+                          <widget class="QGroupBox" name="groupBox_17">
+                           <property name="title">
+                            <string>PRBS</string>
                            </property>
+                           <layout class="QVBoxLayout" name="verticalLayout_22">
+                            <item>
+                             <widget class="QRadioButton" name="rbtn_refsig6">
+                              <property name="text">
+                               <string>PRBS</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <spacer name="verticalSpacer_7">
+                              <property name="orientation">
+                               <enum>Qt::Vertical</enum>
+                              </property>
+                              <property name="sizeHint" stdset="0">
+                               <size>
+                                <width>20</width>
+                                <height>40</height>
+                               </size>
+                              </property>
+                             </spacer>
+                            </item>
+                           </layout>
                           </widget>
                          </item>
-                         <item row="1" column="1">
-                          <widget class="QRadioButton" name="radiobutton_sigfreq4">
-                           <property name="text">
-                            <string>1.25 Hz</string>
+                         <item>
+                          <widget class="QGroupBox" name="groupBox_22">
+                           <property name="title">
+                            <string>Other</string>
                            </property>
-                          </widget>
-                         </item>
-                         <item row="3" column="0">
-                          <widget class="QRadioButton" name="radiobutton_sigfreq2">
-                           <property name="text">
-                            <string>0.50 Hz</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="3" column="1">
-                          <widget class="QRadioButton" name="radiobutton_sigfreq5">
-                           <property name="text">
-                            <string>2.0 Hz</string>
-                           </property>
-                          </widget>
-                         </item>
-                         <item row="0" column="1">
-                          <widget class="QRadioButton" name="radiobutton_sigfreq3">
-                           <property name="text">
-                            <string>1.0 Hz</string>
-                           </property>
+                           <layout class="QVBoxLayout" name="verticalLayout_12">
+                            <item>
+                             <widget class="QRadioButton" name="rbtn_refsig0">
+                              <property name="text">
+                               <string>Other</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <spacer name="verticalSpacer_8">
+                              <property name="orientation">
+                               <enum>Qt::Vertical</enum>
+                              </property>
+                              <property name="sizeHint" stdset="0">
+                               <size>
+                                <width>20</width>
+                                <height>40</height>
+                               </size>
+                              </property>
+                             </spacer>
+                            </item>
+                           </layout>
                           </widget>
                          </item>
                         </layout>
@@ -1234,7 +1383,7 @@
      <x>0</x>
      <y>0</y>
      <width>1488</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

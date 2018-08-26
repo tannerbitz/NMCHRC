@@ -2,24 +2,38 @@
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
+  <property name="windowModality">
+   <enum>Qt::WindowModal</enum>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1488</width>
-    <height>870</height>
+    <width>1485</width>
+    <height>839</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
+   <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
+  </property>
+  <property name="font">
+   <font>
+    <pointsize>8</pointsize>
+   </font>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_42">
@@ -39,6 +53,7 @@
         </property>
         <property name="font">
          <font>
+          <pointsize>8</pointsize>
           <weight>75</weight>
           <bold>true</bold>
          </font>
@@ -46,48 +61,13 @@
         <property name="title">
          <string>Settings</string>
         </property>
-        <layout class="QVBoxLayout" name="verticalLayout">
-         <item>
-          <widget class="QGroupBox" name="groupBox_3">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>100</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>Patient</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_12">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_9">
-              <item>
-               <widget class="QLabel" name="lbl_patientnumber">
-                <property name="font">
-                 <font>
-                  <weight>50</weight>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
+        <layout class="QGridLayout" name="gridLayout_9">
+         <item row="1" column="0">
           <widget class="QGroupBox" name="groupBox_6">
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>100</height>
+             <height>75</height>
             </size>
            </property>
            <property name="title">
@@ -117,12 +97,12 @@
            </layout>
           </widget>
          </item>
-         <item>
+         <item row="2" column="0">
           <widget class="QGroupBox" name="groupBox_4">
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>100</height>
+             <height>75</height>
             </size>
            </property>
            <property name="title">
@@ -152,12 +132,12 @@
            </layout>
           </widget>
          </item>
-         <item>
+         <item row="3" column="0">
           <widget class="QGroupBox" name="groupBox_5">
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>100</height>
+             <height>75</height>
             </size>
            </property>
            <property name="title">
@@ -187,12 +167,12 @@
            </layout>
           </widget>
          </item>
-         <item>
+         <item row="4" column="0">
           <widget class="QGroupBox" name="groupBox_7">
            <property name="minimumSize">
             <size>
              <width>0</width>
-             <height>100</height>
+             <height>75</height>
             </size>
            </property>
            <property name="title">
@@ -222,7 +202,7 @@
            </layout>
           </widget>
          </item>
-         <item>
+         <item row="5" column="0">
           <widget class="QPushButton" name="btn_resetserial">
            <property name="minimumSize">
             <size>
@@ -241,7 +221,7 @@
            </property>
           </widget>
          </item>
-         <item>
+         <item row="6" column="0">
           <spacer name="verticalSpacer_6">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -254,7 +234,42 @@
            </property>
           </spacer>
          </item>
-         <item>
+         <item row="0" column="0">
+          <widget class="QGroupBox" name="groupBox_3">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>75</height>
+            </size>
+           </property>
+           <property name="title">
+            <string>Patient</string>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_12">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_9">
+              <item>
+               <widget class="QLabel" name="lbl_patientnumber">
+                <property name="font">
+                 <font>
+                  <weight>50</weight>
+                  <bold>false</bold>
+                 </font>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="7" column="0">
           <widget class="QFrame" name="frame">
            <property name="frameShape">
             <enum>QFrame::StyledPanel</enum>
@@ -347,6 +362,11 @@
                      <horstretch>3</horstretch>
                      <verstretch>1</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>8</pointsize>
+                    </font>
                    </property>
                    <property name="title">
                     <string>Settings</string>
@@ -606,6 +626,11 @@
                      <horstretch>1</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>9</pointsize>
+                    </font>
                    </property>
                    <property name="title">
                     <string>MVC Measurement</string>
@@ -964,6 +989,11 @@
                      <height>0</height>
                     </size>
                    </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>8</pointsize>
+                    </font>
+                   </property>
                    <property name="title">
                     <string>Trial Settings</string>
                    </property>
@@ -984,31 +1014,10 @@
                         <layout class="QGridLayout" name="gridLayout_2">
                          <item row="0" column="0">
                           <layout class="QGridLayout" name="gridLayout">
-                           <item row="1" column="1">
-                            <widget class="QRadioButton" name="rbtn_volreflex5df">
-                             <property name="text">
-                              <string>5 Degrees DF</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="2" column="0">
+                           <item row="0" column="1">
                             <widget class="QRadioButton" name="rbtn_volreflex15pf">
                              <property name="text">
                               <string>15 Degrees PF</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="0" column="1">
-                            <widget class="QRadioButton" name="rbtn_volreflex0">
-                             <property name="text">
-                              <string>0 Degrees</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="3" column="0">
-                            <widget class="QRadioButton" name="rbtn_volreflex20pf">
-                             <property name="text">
-                              <string>20 Degrees PF</string>
                              </property>
                             </widget>
                            </item>
@@ -1019,17 +1028,38 @@
                              </property>
                             </widget>
                            </item>
-                           <item row="2" column="1">
+                           <item row="0" column="0">
+                            <widget class="QRadioButton" name="rbtn_volreflex5pf">
+                             <property name="text">
+                              <string>5 Degrees PF</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="1" column="1">
+                            <widget class="QRadioButton" name="rbtn_volreflex20pf">
+                             <property name="text">
+                              <string>20 Degrees PF</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="0" column="3">
+                            <widget class="QRadioButton" name="rbtn_volreflex5df">
+                             <property name="text">
+                              <string>5 Degrees DF</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="1" column="3">
                             <widget class="QRadioButton" name="rbtn_volreflex10df">
                              <property name="text">
                               <string>10 Degrees DF</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="0" column="0">
-                            <widget class="QRadioButton" name="rbtn_volreflex5pf">
+                           <item row="0" column="2">
+                            <widget class="QRadioButton" name="rbtn_volreflex0">
                              <property name="text">
-                              <string>5 Degrees PF</string>
+                              <string>0 Degrees</string>
                              </property>
                             </widget>
                            </item>
@@ -1103,7 +1133,7 @@
                          <item>
                           <widget class="QGroupBox" name="groupBox_14">
                            <property name="sizePolicy">
-                            <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                              <horstretch>0</horstretch>
                              <verstretch>0</verstretch>
                             </sizepolicy>
@@ -1112,27 +1142,6 @@
                             <string>Sinusoid</string>
                            </property>
                            <layout class="QGridLayout" name="gridLayout_3">
-                            <item row="6" column="0">
-                             <widget class="QRadioButton" name="rbtn_refsig5">
-                              <property name="text">
-                               <string>2.0 Hz</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item row="5" column="0">
-                             <widget class="QRadioButton" name="rbtn_refsig4">
-                              <property name="text">
-                               <string>1.25 Hz</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item row="4" column="0">
-                             <widget class="QRadioButton" name="rbtn_refsig3">
-                              <property name="text">
-                               <string>1.0 Hz</string>
-                              </property>
-                             </widget>
-                            </item>
                             <item row="1" column="0">
                              <widget class="QRadioButton" name="rbtn_refsig1">
                               <property name="text">
@@ -1144,6 +1153,27 @@
                              <widget class="QRadioButton" name="rbtn_refsig2">
                               <property name="text">
                                <string>0.50 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="3" column="0">
+                             <widget class="QRadioButton" name="rbtn_refsig3">
+                              <property name="text">
+                               <string>1.0 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="1" column="1">
+                             <widget class="QRadioButton" name="rbtn_refsig4">
+                              <property name="text">
+                               <string>1.25 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item row="2" column="1">
+                             <widget class="QRadioButton" name="rbtn_refsig5">
+                              <property name="text">
+                               <string>2.0 Hz</string>
                               </property>
                              </widget>
                             </item>
@@ -1377,17 +1407,6 @@
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1488</width>
-     <height>21</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <resources/>
  <connections/>

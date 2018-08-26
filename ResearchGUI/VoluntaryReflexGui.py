@@ -40,6 +40,7 @@ bottomborder = None
 mvctable = {'pf': None, 'df': None}
 percentmvc = 0.2
 volreflexflexion = None
+isprbssignal = False
 
 def getSerialResponse():
     global ser
@@ -63,6 +64,7 @@ class VolReflexTrialThread(QThread):
     def run(self):
         global measuredsignalchannel
         global referencesignalchannel
+        global isprbssignal
         self.printToVolReflexLabel.emit("Rest Phase")
         starttime = time.time()
         zeroduration = 5
@@ -87,7 +89,7 @@ class VolReflexTrialThread(QThread):
             referencevalspan = maxreferenceval - minreferenceval
         elif (volreflexflexion == "PF"):
             maxreferenceval = 0
-            minreferenceval = percentmvc*mvctable['pf']
+            minreferenceval = -(percentmvc*mvctable['pf'])
             referencevalspan = maxreferenceval - minreferenceval
         elif (volreflexflexion == "DFPF"):
             maxreferenceval = percentmvc*np.mean([abs(mvctable['df']), abs(mvctable['pf'])])
@@ -108,7 +110,13 @@ class VolReflexTrialThread(QThread):
                 measuredval = bottomborder
             elif (measuredval > topborder):
                 measuredval = topborder
-            referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+            if (not isprbssignal):
+                referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+            else:   #PRBS input
+                if (referenceval > 2048):   #high input
+                    referenceval = maxreferenceval
+                else:                       #low input
+                    referenceval = minreferenceval
             progressbarval = round(100*(time.time() - starttime)/trialduration)
             self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
@@ -146,6 +154,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
+        ag = QDesktopWidget().availableGeometry()
+        self.setGeometry(0, 0, 1366, 650)
         uic.loadUi('ResearchGui.ui', self)
         self.show()
         self.startSettingsTab()
@@ -537,12 +547,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.completeVoluntaryReflexFilename()
 
     def setReferenceSignal(self, btn_volreflexreferencesignal):
-        tempSineFreq = btn_volreflexreferencesignal.text()
-        if (tempSineFreq == "Other"):
+        global isprbssignal
+        btntext = btn_volreflexreferencesignal.text()
+        if (btntext == "Other"):
             self._volreflexreferencesignal = None
+            isprbssignal = False
+        elif (btntext == "PRBS"):
+            isprbssignal = True
         else:
-            tempSineFreq = tempSineFreq.replace(" ", "")
-            self._volreflexreferencesignal = tempSineFreq.replace(".", "-")
+            isprbssignal = False
+            btntext = btntext.replace(" ", "")
+            self._volreflexreferencesignal = btntext.replace(".", "-")
         self.completeVoluntaryReflexFilename()
 
     def setVoluntaryReflexAnklePosition(self, btn_volreflexankleposition):
@@ -578,7 +593,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_volreflexlivenotes.setText('Import PF MVC Trial Readings')
             else:
                 #Set Plot Ranges for Test
-                self.lbl_trialflexionmvc.setText(str(mvctable['pf']))
+                self.lbl_trialflexionmvc.setText(str(round(mvctable['pf'],2)))
                 refsignalmax = 0
                 refsignalmin = -(percentmvc*mvctable['pf'])
                 refsignalspan = abs(refsignalmax - refsignalmin)
@@ -591,12 +606,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_volreflexlivenotes.setText('Import DF MVC Trial Readings')
             else:
                 #Set Plot Ranges for Test
-                self.lbl_trialflexionmvc.setText(str(mvctable['df']))
-                refsignalmax = 0
-                refsignalmin = -(percentmvc*mvctable['pf'])
+                self.lbl_trialflexionmvc.setText(str(round(mvctable['df'],2)))
+                refsignalmax = (percentmvc*mvctable['pf'])
+                refsignalmin = 0
                 refsignalspan = abs(refsignalmax - refsignalmin)
-                topborder = refsignalmax+0.3*refsignalspan
-                bottomborder = refsignalmin-0.6*refsignalspan
+                topborder = refsignalmax+0.6*refsignalspan
+                bottomborder = refsignalmin-0.3*refsignalspan
                 self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         elif (tempFlexion == "Dorsiflexion-Plantarflexion"):
             volreflexflexion = "DFPF"
@@ -604,7 +619,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.lbl_volreflexlivenotes.setText('Import DF and PF MVC Trial Readings')
             else:
                 avgmvc = np.mean([mvctable['df'], mvctable['pf']])
-                self.lbl_trialflexionmvc.setText(str(avgmvc))
+                self.lbl_trialflexionmvc.setText(str(round(avgmvc, 2)))
                 refsignalmax = percentmvc*avgmvc
                 refsignalmin = -percentmvc*avgmvc
                 refsignalspan = abs(refsignalmax - refsignalmin)
@@ -729,5 +744,4 @@ class MainWindow(QtWidgets.QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = MainWindow()
-    window.showFullScreen()
     sys.exit(app.exec_())

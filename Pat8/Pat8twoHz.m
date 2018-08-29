@@ -12,7 +12,7 @@ P8twoDFPF = load('PatNo8_VR_AnklePosNeutral_DFPF_2-0Hz.txt');
 
 %% Calling reference and measured vectors
 
-mvcDF_measured = P8mvcDF(:,1); % calling DF MVC data for Pat7
+mvcDF_measured = P8mvcDF(:,1); % calling DF MVC data for Pat8
 mvcPF_measured = P8mvcPF(:,1); % calling PF MVC data for Pat8
 
 P8twoDF_m = P8twoDF(:,1); % column 1 is measured
@@ -65,8 +65,13 @@ mvcDF_Nm = abs(mvcDF_serial)*serial2lbs_bipolar*lbs2NmAt15cm;
 mvcPF_serial = min([mvcPF1, mvcPF2, mvcPF3]);
 mvcPF_Nm = abs(mvcPF_serial)*serial2lbs_bipolar*lbs2NmAt15cm;
 
+DFPFmax = max(P8twoDFPF(:,2));
+DFPFmin = min(P8twoDFPF(:,2));
+DFPFzero = (DFPFmax+DFPFmin)/2;
+
 refsigserial2NmDF = mvcDF_Nm/4096*0.2;
 refsigserial2NmPF = mvcPF_Nm/4096*0.2;
+refsigserial2NmDFPF =0.002;
 
 clear figures;
 figure(1)
@@ -83,6 +88,12 @@ plot(P8twoPF_ref*refsigserial2NmPF);
 plot(P8twoPF_m*serial2lbs_bipolar*lbs2NmAt15cm+2); % plus 2 fudge factor??
 hold off;
 
+figure(3);
+title('2 Hz DFPF');
+hold on;
+plot(P8twoDFPF_ref*refsigserial2NmDFPF);
+plot(P8twoDFPF_m*serial2lbs_bipolar*lbs2NmAt15cm+4);
+hold off;
 
 
 

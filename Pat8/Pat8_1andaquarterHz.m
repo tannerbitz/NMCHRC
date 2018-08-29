@@ -12,7 +12,7 @@ P8one25DFPF = load('PatNo8_VR_AnklePosNeutral_DFPF_1-25Hz.txt');
 
 %% Calling reference and measured vectors
 
-mvcDF_measured = P8mvcDF(:,1); % calling DF MVC data for Pat7
+mvcDF_measured = P8mvcDF(:,1); % calling DF MVC data for Pat8
 mvcPF_measured = P8mvcPF(:,1); % calling PF MVC data for Pat8
 
 P8one25DF_m = P8one25DF(:,1); % column 1 is measured

@@ -1173,7 +1173,7 @@
                             <item row="2" column="1">
                              <widget class="QRadioButton" name="rbtn_refsig5">
                               <property name="text">
-                               <string>2.0 Hz</string>
+                               <string>1.5 Hz</string>
                               </property>
                              </widget>
                             </item>

@@ -8,7 +8,7 @@ float TsSine = 1000; // 1ms
 float TsPrbs = 250000; // 250ms
 const uint8_t sineFreqListLength = 5;
 uint8_t totalPossibleInputSignals = 6;
-float sineFreqs[sineFreqListLength] = {0.25, 0.5, 1.0, 1.25, 2.0};
+float sineFreqs[sineFreqListLength] = {0.25, 0.5, 1.0, 1.25, 1.5};
 
 volatile int volt_write =0;
 

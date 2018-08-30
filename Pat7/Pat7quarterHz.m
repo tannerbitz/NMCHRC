@@ -65,8 +65,12 @@ mvcDF_Nm = abs(mvcDF_serial)*serial2lbs_bipolar*lbs2NmAt15cm;
 mvcPF_serial = min([mvcPF1, mvcPF2, mvcPF3]);
 mvcPF_Nm = abs(mvcPF_serial)*serial2lbs_bipolar*lbs2NmAt15cm;
 
+mvcDFPF_serial = (mvcDF_serial+abs(mvcPF_serial))/2;
+mvcDFPF_Nm = abs(mvcDFPF_serial)*serial2lbs_bipolar*lbs2NmAt15cm;
+
 refsigserial2NmDF = mvcDF_Nm/4096*0.2;
 refsigserial2NmPF = mvcPF_Nm/4096*0.2;
+refsigserial2NmDFPF = mvcDFPF_Nm/2048*0.2;
 
 clear figures;
 figure(1)
@@ -83,6 +87,12 @@ plot(P7quarterPF_ref*refsigserial2NmPF);
 plot(P7quarterPF_m*serial2lbs_bipolar*lbs2NmAt15cm+4); % plus 4 fudge factor??
 hold off;
 
+figure(3);
+title('1/4 Hz DFPF');
+hold on;
+plot(P7quarterDFPF_ref*refsigserial2NmDFPF);
+plot(P7quarterDFPF_m*serial2lbs_bipolar*lbs2NmAt15cm+4);
+hold off;
 
 
 

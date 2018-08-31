@@ -84,7 +84,7 @@ figure(2)
 title('1/4 Hertz PF');
 hold on;
 plot(P7quarterPF_ref*refsigserial2NmPF);
-plot(P7quarterPF_m*serial2lbs_bipolar*lbs2NmAt15cm+4); % plus 4 fudge factor??
+plot(P7quarterPF_m*serial2lbs_bipolar*lbs2NmAt15cm); % plus 4 fudge factor??
 hold off;
 
 figure(3);

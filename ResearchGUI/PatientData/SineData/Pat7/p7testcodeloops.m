@@ -20,6 +20,10 @@ end
 
 dfm = mean(df,2);
 
+SDdfm = std(dfm);
+SDdfmP = dfm + 29.4304;
+SDdfmM = dfm - 29.4304;
+
 mvcdf1 = max(p7mvcdf(5500:9500));
 mvcdf2 = max(p7mvcdf(25500:29500));
 mvcdf3 = max(p7mvcdf(45500:49500));
@@ -33,8 +37,11 @@ refsigser2Nm = mvcdf_Nm/4096*0.2;
 ref = refsig*refsigser2Nm;
 
 hold on;
+title('1/4 Hz Dorsiflexion');
 plot(dfm*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
 plot(ref);
+plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
+plot(SDdfmM*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
 
 
 

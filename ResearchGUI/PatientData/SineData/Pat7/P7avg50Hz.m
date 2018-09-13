@@ -10,7 +10,7 @@ p7df_ref = p7df25(:,2);
 serial2lbs_bipolar = 125/2048;
 lbs2NmAt15cm = 4.448*.15;
 
-n = 1;
+n = 900;
 for i = 1:32
     
     df(:,i) = p7df_m(n:2000+n);
@@ -32,14 +32,14 @@ mvcdf3 = max(p7mvcdf(45500:49500));
 mvcdfSerial = max([mvcdf1, mvcdf2, mvcdf3]);
 mvcdf_Nm = abs(mvcdfSerial)*serial2lbs_bipolar*lbs2NmAt15cm;
 
-refsig = p7df_ref(1:2001);
+refsig = p7df_ref(900:2901);
 refsigser2Nm = mvcdf_Nm/4096*0.2;
 
 ref = refsig*refsigser2Nm;
 
 hold on;
 title('1/2 Hz Dorsiflexion');
-plot(dfm*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
+plot(dfm*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
 plot(ref);
-plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
-plot(SDdfmM*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
+plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
+plot(SDdfmM*serial2lbs_bipolar*lbs2NmAt15cm+7.35);

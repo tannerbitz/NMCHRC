@@ -70,10 +70,13 @@ refsigserial2NmPF = mvcPF_Nm/4096*0.2;
 
 clear figures;
 figure(1)
-title('1 Hertz DF');
+title('1 Hertz Dorsiflexion');
+xlabel('Time (ms)');
+ylabel('Nm');
+legend('');
 hold on;
+plot(P7oneDF_m*serial2lbs_bipolar*lbs2NmAt15cm-1);
 plot(P7oneDF_ref*refsigserial2NmDF);
-plot(P7oneDF_m*serial2lbs_bipolar*lbs2NmAt15cm-1); % minus 1 fudge factor
 hold off;
 
 figure(2)

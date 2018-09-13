@@ -39,6 +39,9 @@ ref = refsig*refsigser2Nm;
 
 hold on;
 title('1 Hz Dorsiflexion');
+xlabel('Time (ms)');
+ylabel('Nm');
+legend('');
 plot(dfm*serial2lbs_bipolar*lbs2NmAt15cm+8.25);
 plot(ref);
 plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+8.25);

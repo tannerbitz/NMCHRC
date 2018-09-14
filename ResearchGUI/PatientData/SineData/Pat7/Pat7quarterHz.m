@@ -74,10 +74,13 @@ refsigserial2NmDFPF = mvcDFPF_Nm/2048*0.2;
 
 clear figures;
 figure(1)
-title('1/4 Hertz DF');
+title('1/4 Hertz Dorsiflexion');
 hold on;
 plot(P7quarterDF_ref*refsigserial2NmDF);
 plot(P7quarterDF_m*serial2lbs_bipolar*lbs2NmAt15cm);
+xlabel('Time(ms)');
+ylabel('Nm');
+legend('Reference','Measured');
 hold off;
 
 figure(2)

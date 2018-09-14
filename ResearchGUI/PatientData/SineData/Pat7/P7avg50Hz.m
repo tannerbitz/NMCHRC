@@ -36,10 +36,17 @@ refsig = p7df_ref(900:2901);
 refsigser2Nm = mvcdf_Nm/4096*0.2;
 
 ref = refsig*refsigser2Nm;
+SDref = std(ref);
+refp = ref + SDref;
+refm = ref - SDref;
 
 hold on;
 title('1/2 Hz Dorsiflexion');
 plot(dfm*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
 plot(ref);
-plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
-plot(SDdfmM*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
+%plot(SDdfmP*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
+%plot(SDdfmM*serial2lbs_bipolar*lbs2NmAt15cm+7.35);
+plot(refp);
+plot(refm);
+xlim([0 2000]);
+legend('Measured','Reference','+1 STD','-1 STD');

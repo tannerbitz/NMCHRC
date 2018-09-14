@@ -37,10 +37,10 @@ referencesignalchannel = None
 measuredsignalchannel = None
 topborder = None
 bottomborder = None
-mvctable = {'pf': None, 'df': None}
+mvctable = {'pf': None, 'df': None, 'dfpf': None}
 percentmvc = 0.2
 volreflexflexion = None
-isprbssignal = False
+refsignaltype = None
 
 def getSerialResponse():
     global ser
@@ -61,10 +61,33 @@ class VolReflexTrialThread(QThread):
     def __init__(self):
         QThread.__init__(self)
 
-    def run(self):
+    def getMeasRefSignals(self):
         global measuredsignalchannel
         global referencesignalchannel
-        global isprbssignal
+        ser.write(b'<2>')
+        serialstring = getSerialResponse()
+        serialvals = serialstring.split(',')
+        measuredval = int(serialvals[measuredsignalchannel])
+        referenceval = int(serialvals[referencesignalchannel])
+        return [referenceval, measuredval]
+
+    def getMinMaxRefLevels(self):
+        if (volreflexflexion == "DF"):
+            maxreferenceval = percentmvc*mvctable['df']
+            minreferenceval = 0
+        elif (volreflexflexion == "PF"):
+            maxreferenceval = 0
+            minreferenceval = -(percentmvc*mvctable['pf'])
+        elif (volreflexflexion == "DFPF"):
+            maxreferenceval = percentmvc*mvctable['dfpf']
+            minreferenceval = -maxreferenceval
+
+        referencevalspan = maxreferenceval - minreferenceval
+        return [minreferenceval, maxreferenceval, referencevalspan]
+
+    def standardRun(self):
+        global topborder
+        global bottomborder
         self.printToVolReflexLabel.emit("Rest Phase")
         starttime = time.time()
         zeroduration = 5
@@ -72,10 +95,7 @@ class VolReflexTrialThread(QThread):
         zerolevel = 0
         endtime = starttime + zeroduration
         while (time.time() < endtime):
-            ser.write(b'<2>')
-            serialstring = getSerialResponse()
-            serialvals = serialstring.split(',')
-            measuredval = int(serialvals[measuredsignalchannel])
+            [referenceval, measuredval] = getMeasRefSignals()
             zerocount = zerocount + 1
             zerolevel = zerolevel + (measuredval - zerolevel)/zerocount
             progressbarval = round(100*(time.time() - starttime)/zeroduration)
@@ -83,46 +103,48 @@ class VolReflexTrialThread(QThread):
 
         zerolevel = int(zerolevel)
         measuredvalqueue = deque([0, 0, 0])
-        if (volreflexflexion == "DF"):
-            maxreferenceval = percentmvc*mvctable['df']
-            minreferenceval = 0
-            referencevalspan = maxreferenceval - minreferenceval
-        elif (volreflexflexion == "PF"):
-            maxreferenceval = 0
-            minreferenceval = -(percentmvc*mvctable['pf'])
-            referencevalspan = maxreferenceval - minreferenceval
-        elif (volreflexflexion == "DFPF"):
-            maxreferenceval = percentmvc*np.mean([abs(mvctable['df']), abs(mvctable['pf'])])
-            minreferenceval = -maxreferenceval
-            referencevalspan = maxreferenceval - minreferenceval
+        [minreferenceval, maxreferenceval, referencevalspan] = getMinMaxRefLevels()
         starttime = time.time()
         trialduration = 60
         endtime = starttime + trialduration
         self.printToVolReflexLabel.emit("Match the Reference Line")
         while (time.time() < endtime):
-            ser.write(b'<2>')
-            serialvals = getSerialResponse().split(',')
+            [referenceval, measuredval] = getMeasRefSignals()
             measuredvalqueue.popleft()
-            measuredvalqueue.append(serval2torqueNm*(int(serialvals[measuredsignalchannel]) - zerolevel))
+            measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
             measuredval = np.mean(measuredvalqueue)
             referenceval = int(serialvals[referencesignalchannel])
             if (measuredval < bottomborder):
                 measuredval = bottomborder
             elif (measuredval > topborder):
                 measuredval = topborder
-            if (not isprbssignal):
-                referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
-            else:   #PRBS input
+
+            if (refsignaltype in ['prbs']):   #PRBS input
                 if (referenceval > 2048):   #high input
                     referenceval = maxreferenceval
                 else:                       #low input
                     referenceval = minreferenceval
+            elif (refsignaltype in ['sine']):
+                referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+
+
             progressbarval = round(100*(time.time() - starttime)/trialduration)
             self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
         self.supplyDaqReadings.emit(0,0,0)
         self.printToVolReflexLabel.emit("Done")
         ser.write(b'<1>')
+
+    def stepRun():
+        whatever = 0
+
+    def run(self):
+        global refsignaltype
+        if refsignaltype in ['sine', 'prbs', 'other']:
+            standardRun()
+        elif refsignaltype in ['step']:
+            stepRun()
+
 
 class MainWindow(QtWidgets.QMainWindow):
 
@@ -432,7 +454,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 mvcserialval = abs(min(mvcserialvals))
                 mvctable['df'] = mvcserialval*serval2torqueNm
                 self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
+            setDfPfMvc()
 
+    def setDfPfMvc(self):
+        global mvctable
+        if mvctable['pf'] is not None and mvctable['df'] is not None:
+            mvctable['dfpf'] = np.mean([abs(mvctable['pf']), abs(mvctable['df'])])
+        else:
+            mvctable['dfpf'] = None
 
     def customizeSetupTab(self):
         # Expand table widget column
@@ -515,15 +544,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volreflexflexionbuttongroup.buttonClicked.connect(self.setVoluntaryReflexFlexion)
 
         # Group Voluntary Reflex Sinusoid Freqency RadioButtons
-        self.volreflexsinefreqbuttongroup = QButtonGroup(self)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig0)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig1)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig2)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig3)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig4)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig5)
-        self.volreflexsinefreqbuttongroup.addButton(self.rbtn_refsig6)
-        self.volreflexsinefreqbuttongroup.buttonClicked.connect(self.setReferenceSignal)
+        self.volreflexrefsigbtngroup = QButtonGroup(self)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig0)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig1)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig2)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig3)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig4)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig5)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig6)
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig7)
+        self.volreflexrefsigbtngroup.buttonClicked.connect(self.setReferenceSignal)
 
         # Connect Trial Spinbox
         self.spinboxtrialnumber.valueChanged.connect(self.setVoluntaryReflexTrialNumber)
@@ -547,15 +577,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.completeVoluntaryReflexFilename()
 
     def setReferenceSignal(self, btn_volreflexreferencesignal):
-        global isprbssignal
+        global refsignaltype
         btntext = btn_volreflexreferencesignal.text()
         if (btntext == "Other"):
             self._volreflexreferencesignal = None
-            isprbssignal = False
+            refsignaltype = 'other'
         elif (btntext == "PRBS"):
-            isprbssignal = True
+            refsignaltype = 'prbs'
+            self._volreflexreferencesignal = btntext
+        elif (btntext == "Step"):
+            refsignaltype = 'step'
+            self._volreflexreferencesignal = btntext
         else:
-            isprbssignal = False
+            refsignaltype = 'sine
             btntext = btntext.replace(" ", "")
             self._volreflexreferencesignal = btntext.replace(".", "-")
         self.completeVoluntaryReflexFilename()
@@ -615,10 +649,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         elif (tempFlexion == "Dorsiflexion-Plantarflexion"):
             volreflexflexion = "DFPF"
-            if (mvctable['pf'] is None or mvctable['df'] is None):
+            if (mvctable['dfpf'] is None):
                 self.lbl_volreflexlivenotes.setText('Import DF and PF MVC Trial Readings')
             else:
-                avgmvc = np.mean([mvctable['df'], mvctable['pf']])
+                avgmvc = mvctable['dfpf']
                 self.lbl_trialflexionmvc.setText(str(round(avgmvc, 2)))
                 refsignalmax = percentmvc*avgmvc
                 refsignalmin = -percentmvc*avgmvc

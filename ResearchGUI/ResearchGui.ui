@@ -1193,19 +1193,6 @@
                               </property>
                              </widget>
                             </item>
-                            <item>
-                             <spacer name="verticalSpacer_7">
-                              <property name="orientation">
-                               <enum>Qt::Vertical</enum>
-                              </property>
-                              <property name="sizeHint" stdset="0">
-                               <size>
-                                <width>20</width>
-                                <height>40</height>
-                               </size>
-                              </property>
-                             </spacer>
-                            </item>
                            </layout>
                           </widget>
                          </item>
@@ -1216,24 +1203,18 @@
                            </property>
                            <layout class="QVBoxLayout" name="verticalLayout_12">
                             <item>
+                             <widget class="QRadioButton" name="rbtn_refsig7">
+                              <property name="text">
+                               <string>Step</string>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
                              <widget class="QRadioButton" name="rbtn_refsig0">
                               <property name="text">
                                <string>Other</string>
                               </property>
                              </widget>
-                            </item>
-                            <item>
-                             <spacer name="verticalSpacer_8">
-                              <property name="orientation">
-                               <enum>Qt::Vertical</enum>
-                              </property>
-                              <property name="sizeHint" stdset="0">
-                               <size>
-                                <width>20</width>
-                                <height>40</height>
-                               </size>
-                              </property>
-                             </spacer>
                             </item>
                            </layout>
                           </widget>

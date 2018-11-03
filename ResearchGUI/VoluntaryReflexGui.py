@@ -85,6 +85,9 @@ class VolReflexTrialThread(QThread):
         referencevalspan = maxreferenceval - minreferenceval
         return [minreferenceval, maxreferenceval, referencevalspan]
 
+    def waitForNewZeroLevel(self):
+        whatever = 0
+
     def standardRun(self):
         global topborder
         global bottomborder
@@ -545,14 +548,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Group Voluntary Reflex Sinusoid Freqency RadioButtons
         self.volreflexrefsigbtngroup = QButtonGroup(self)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig0)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig1)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig2)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig3)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig4)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig5)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig6)
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig7)
+        # Sinusoid Buttons
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig1) #0.25 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig2) #0.50 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig3) #0.75 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig4) #1.00 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig5) #1.25 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig6) #1.50 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig7) #1.75 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig8) #2.00 Hz
+        # Other reference signal radiobutons
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_prbs) #PRBS
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_step) #Step
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_other) #Other
+
         self.volreflexrefsigbtngroup.buttonClicked.connect(self.setReferenceSignal)
 
         # Connect Trial Spinbox
@@ -589,7 +598,7 @@ class MainWindow(QtWidgets.QMainWindow):
             refsignaltype = 'step'
             self._volreflexreferencesignal = btntext
         else:
-            refsignaltype = 'sine
+            refsignaltype = 'sine'
             btntext = btntext.replace(" ", "")
             self._volreflexreferencesignal = btntext.replace(".", "-")
         self.completeVoluntaryReflexFilename()

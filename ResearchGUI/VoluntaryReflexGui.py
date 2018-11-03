@@ -38,10 +38,11 @@ measuredsignalchannel = None
 topborder = None
 bottomborder = None
 mvctable = {'pf': None, 'df': None, 'dfpf': None}
-percentmvc = 0.2
+percentmvc = 0.3
 volreflexflexion = None
 refsignaltype = None
-
+refsignalfreq = None
+serialvals = None
 def getSerialResponse():
     global ser
     endtime = time.time() + 0.5
@@ -64,6 +65,7 @@ class VolReflexTrialThread(QThread):
     def getMeasRefSignals(self):
         global measuredsignalchannel
         global referencesignalchannel
+        global serialvals
         ser.write(b'<2>')
         serialstring = getSerialResponse()
         serialvals = serialstring.split(',')
@@ -91,6 +93,9 @@ class VolReflexTrialThread(QThread):
     def standardRun(self):
         global topborder
         global bottomborder
+        global refsignaltype
+        global refsignalfreq
+        global serialvals
         self.printToVolReflexLabel.emit("Rest Phase")
         starttime = time.time()
         zeroduration = 5
@@ -98,7 +103,7 @@ class VolReflexTrialThread(QThread):
         zerolevel = 0
         endtime = starttime + zeroduration
         while (time.time() < endtime):
-            [referenceval, measuredval] = getMeasRefSignals()
+            [referenceval, measuredval] = self.getMeasRefSignals()
             zerocount = zerocount + 1
             zerolevel = zerolevel + (measuredval - zerolevel)/zerocount
             progressbarval = round(100*(time.time() - starttime)/zeroduration)
@@ -106,13 +111,17 @@ class VolReflexTrialThread(QThread):
 
         zerolevel = int(zerolevel)
         measuredvalqueue = deque([0, 0, 0])
-        [minreferenceval, maxreferenceval, referencevalspan] = getMinMaxRefLevels()
+        [minreferenceval, maxreferenceval, referencevalspan] = self.getMinMaxRefLevels()
         starttime = time.time()
-        trialduration = 60
+        if refsignaltype == 'sine':
+            period = 1/refsignalfreq
+            trialduration = 20*period + 5  #trial will last 20 periods plus a 5 second adjustment period
+        else:
+            trialduration = 60
         endtime = starttime + trialduration
         self.printToVolReflexLabel.emit("Match the Reference Line")
         while (time.time() < endtime):
-            [referenceval, measuredval] = getMeasRefSignals()
+            [referenceval, measuredval] = self.getMeasRefSignals()
             measuredvalqueue.popleft()
             measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
             measuredval = np.mean(measuredvalqueue)
@@ -138,15 +147,15 @@ class VolReflexTrialThread(QThread):
         self.printToVolReflexLabel.emit("Done")
         ser.write(b'<1>')
 
-    def stepRun():
+    def stepRun(self):
         whatever = 0
 
     def run(self):
         global refsignaltype
         if refsignaltype in ['sine', 'prbs', 'other']:
-            standardRun()
+            self.standardRun()
         elif refsignaltype in ['step']:
-            stepRun()
+            self.stepRun()
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -457,7 +466,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 mvcserialval = abs(min(mvcserialvals))
                 mvctable['df'] = mvcserialval*serval2torqueNm
                 self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
-            setDfPfMvc()
+            self.setDfPfMvc()
 
     def setDfPfMvc(self):
         global mvctable
@@ -587,18 +596,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setReferenceSignal(self, btn_volreflexreferencesignal):
         global refsignaltype
+        global refsignalfreq
         btntext = btn_volreflexreferencesignal.text()
         if (btntext == "Other"):
             self._volreflexreferencesignal = None
             refsignaltype = 'other'
+            refsignalfreq = None
         elif (btntext == "PRBS"):
             refsignaltype = 'prbs'
+            refsignalfreq = None
             self._volreflexreferencesignal = btntext
         elif (btntext == "Step"):
             refsignaltype = 'step'
+            refsignalfreq = None
             self._volreflexreferencesignal = btntext
         else:
             refsignaltype = 'sine'
+            # get sinusoid frequency
+            freqtext = btntext
+            hzind = freqtext.find('Hz')
+            freqtext = freqtext[0:hzind]
+            refsignalfreq = float(freqtext)
+            # make frequency info ready to add to filename
             btntext = btntext.replace(" ", "")
             self._volreflexreferencesignal = btntext.replace(".", "-")
         self.completeVoluntaryReflexFilename()
@@ -650,7 +669,7 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 #Set Plot Ranges for Test
                 self.lbl_trialflexionmvc.setText(str(round(mvctable['df'],2)))
-                refsignalmax = (percentmvc*mvctable['pf'])
+                refsignalmax = (percentmvc*mvctable['df'])
                 refsignalmin = 0
                 refsignalspan = abs(refsignalmax - refsignalmin)
                 topborder = refsignalmax+0.6*refsignalspan
@@ -760,12 +779,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
         self.btn_resetserial.clicked.connect(self.resetSerial)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
-        self.btn_setmvcmanual.clicked.connect(self.getMvcFile)
+        self.btn_getmvcfiles.clicked.connect(self.getMvcFile)
         self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
         self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
         self.btn_minimize.clicked.connect(self.minimizeWindow)
         self.btn_maximize.clicked.connect(self.maximizeWindow)
         self.btn_close.clicked.connect(self.closeWindow)
+        self.btn_setmvcmanual.clicked.connect(self.setmvcmanual)
+
+    def setmvcmanual(self):
+        mvctable['df'] = float(self.lineedit_dfmvcman.text())
+        mvctable['pf'] = float(self.lineedit_pfmvcman.text())
+        self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(mvctable['pf'],2))))
+        self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
+        self.setDfPfMvc()
 
     def startSettingsTab(self):
 

@@ -29,9 +29,9 @@ Mean_df(i) = mean(df(i,:));
 end
 
 lbound = Mean_df - SDdfRow;
-lbound2 = Mean_df - 2*SDdfRow;
+lbound2 = Mean_df - 3*SDdfRow;
 ubound = Mean_df + SDdfRow;
-ubound2 = Mean_df + 2*SDdfRow;
+ubound2 = Mean_df + 3*SDdfRow;
 
 for i = 1:14
     SE(i) = sumsqr(df(:,i)-Mean_df');
@@ -53,8 +53,8 @@ end
 for i = 1:14
     figure(i);
     hold on;
-    plot(lbound2, 'm','HandleVisibility', 'off');
-    plot(ubound2, 'm');
+    plot(lbound2, 'k','HandleVisibility', 'off');
+    plot(ubound2, 'k');
     plot(lbound, 'r');
     plot(Mean_df, 'b');
     plot(ubound, 'r','HandleVisibility', 'off');

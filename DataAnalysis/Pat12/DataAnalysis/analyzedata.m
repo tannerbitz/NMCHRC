@@ -42,7 +42,7 @@ function res = analyzedata()
 
     
     % Gather data into cycles
-    numcycles = 20;
+    numcycles = 15;
     cycles = zeros(numcycles, floor(trialstruct.samplesperperiod));
     startind = zeroind;
     for i = 1:numcycles

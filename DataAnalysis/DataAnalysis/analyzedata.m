@@ -1,26 +1,44 @@
-function res = analyzedata()
+function res = analyzedata(varargin)
     close all;
-    clear all;
     clc;
     
+    p = inputParser;
+    addParameter(p, 'matfile', '');
+    addParameter(p, 'vrfile', '');
+    parse(p, varargin{:});
+    
+    matfileinputted = ~strcmp('', p.Results.matfile);
+    vrfileinputted = ~strcmp('', p.Results.vrfile);
+    
     % Choose MVC MAT Files. We will get the PF and DF MVC Values which were
-    % calculated and saved in this mat file.
-    [mvcfile, mvcpath] = uigetfile('.mat', ...
-                                    'Choose MVC MAT Files', ...
-                                    'MultiSelect', 'on');
+    % calculated and saved in this mat file
+    if ~(matfileinputted)
+        [mvcfile, mvcpath] = uigetfile('.mat', ...
+                                'Choose MVC MAT Files', ...
+                                'MultiSelect', 'on');
+    else
+        mvcfile = p.Results.matfile;
+        mvcpath = '';
+    end
+
     load(fullfile(mvcpath, mvcfile), 'DF', 'PF');
     mvcpf = PF;
     mvcdf = DF;
-    
-    
+
     refchannel = 2;
     measchannel = 1;
 
-    % Choose Trial File
-    [trialfile, trialpath] = uigetfile('.txt', ...
-                                    'Choose MVC Files', ...
-                                    'MultiSelect', 'off');
-                              
+    if ~(vrfileinputted)
+        % Choose Trial File
+        [trialfile, trialpath] = uigetfile('.txt', ...
+                                        'Choose VR Files', ...
+                                        'MultiSelect', 'off');
+    
+    else
+        trialfile = p.Results.vrfile;
+        trialpath = '';
+    end
+        
     trialstruct = ParseFilename(trialfile, trialpath);
     data = load(fullfile(trialpath, trialfile));
     refdata = data(:,refchannel);
@@ -115,18 +133,15 @@ function res = analyzedata()
     
     nommeascycle_nm = nommeascycle*res2lbs*lbs2newtons*armlength;
 
-    res = [nomrefcycle_nm; nommeascycle_nm];
     
-        [M, I] = max(nommeascycle_nm);
-       
+    res = struct;
+    res.allcycles = cycles;
+    res.validcycles = validcycles;
+    res.validrefcycles = validrefcycles;
+    res.cycleslost = cycleslost;
+    res.nomrefcycle_nm = nomrefcycle_nm;
+    res.nommeascycle_nm = nommeascycle_nm;
+    res.trailinfo = trialstruct;
     
-    close all
-    figure(1)
-    plot(nomrefcycle_nm);
-    hold on
-    plot(nommeascycle_nm);
-    legend('ref', 'meas')
-    plot(I, M, 'r*')
-    hold off
 
 end

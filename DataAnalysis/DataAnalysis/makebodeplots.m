@@ -1,4 +1,4 @@
-addpath ../Pat16/
+addpath ../Pat14/
 addpath ../Pat15/
 addpath ../Pat16/
 
@@ -15,9 +15,9 @@ subplot(2, 1, 1)
 title('DF Bode Plot')
 hold on
 for i = 1:length(Pat14DF)
-    semilogx(Pat14DF{i}.trailinfo.refsigfreq, Pat14DF{i}.magphase.mag, 'ro')
-    semilogx(Pat15DF{i}.trailinfo.refsigfreq, Pat15DF{i}.magphase.mag, 'bo')
-    semilogx(Pat16DF{i}.trailinfo.refsigfreq, Pat16DF{i}.magphase.mag, 'go')
+    semilogx(Pat14DF{i}.trialinfo.refsigfreq, Pat14DF{i}.magphase.mag, 'ro')
+    semilogx(Pat15DF{i}.trialinfo.refsigfreq, Pat15DF{i}.magphase.mag, 'bo')
+    semilogx(Pat16DF{i}.trialinfo.refsigfreq, Pat16DF{i}.magphase.mag, 'go')
 end
 hold off
 ylabel('Mag')
@@ -27,9 +27,9 @@ legend('Pat14', 'Pat15', 'Pat16')
 subplot(2 ,1 ,2)
 hold on
 for i = 1:length(Pat14DF)
-    semilogx(Pat14DF{i}.trailinfo.refsigfreq, Pat14DF{i}.magphase.phase, 'ro')
-    semilogx(Pat15DF{i}.trailinfo.refsigfreq, Pat15DF{i}.magphase.phase, 'bo')
-    semilogx(Pat16DF{i}.trailinfo.refsigfreq, Pat16DF{i}.magphase.phase, 'go')
+    semilogx(Pat14DF{i}.trialinfo.refsigfreq, Pat14DF{i}.magphase.phase, 'ro')
+    semilogx(Pat15DF{i}.trialinfo.refsigfreq, Pat15DF{i}.magphase.phase, 'bo')
+    semilogx(Pat16DF{i}.trialinfo.refsigfreq, Pat16DF{i}.magphase.phase, 'go')
 end
 hold off
 ylabel('Phase')
@@ -42,9 +42,9 @@ subplot(2, 1, 1)
 title('PF Bode Plot')
 hold on
 for i = 1:length(Pat14PF)
-    semilogx(Pat14PF{i}.trailinfo.refsigfreq, Pat14PF{i}.magphase.mag, 'ro')
-    semilogx(Pat15PF{i}.trailinfo.refsigfreq, Pat15PF{i}.magphase.mag, 'bo')
-    semilogx(Pat16PF{i}.trailinfo.refsigfreq, Pat16PF{i}.magphase.mag, 'go')
+    semilogx(Pat14PF{i}.trialinfo.refsigfreq, Pat14PF{i}.magphase.mag, 'ro')
+    semilogx(Pat15PF{i}.trialinfo.refsigfreq, Pat15PF{i}.magphase.mag, 'bo')
+    semilogx(Pat16PF{i}.trialinfo.refsigfreq, Pat16PF{i}.magphase.mag, 'go')
 end
 hold off
 ylabel('Mag')
@@ -54,9 +54,9 @@ legend('Pat14', 'Pat15', 'Pat16')
 subplot(2 ,1 ,2)
 hold on
 for i = 1:length(Pat14PF)
-    semilogx(Pat14PF{i}.trailinfo.refsigfreq, Pat14PF{i}.magphase.phase, 'ro')
-    semilogx(Pat15PF{i}.trailinfo.refsigfreq, Pat15PF{i}.magphase.phase, 'bo')
-    semilogx(Pat16PF{i}.trailinfo.refsigfreq, Pat16PF{i}.magphase.phase, 'go')
+    semilogx(Pat14PF{i}.trialinfo.refsigfreq, Pat14PF{i}.magphase.phase, 'ro')
+    semilogx(Pat15PF{i}.trialinfo.refsigfreq, Pat15PF{i}.magphase.phase, 'bo')
+    semilogx(Pat16PF{i}.trialinfo.refsigfreq, Pat16PF{i}.magphase.phase, 'go')
 end
 hold off
 ylabel('Phase')
@@ -70,7 +70,7 @@ xlabel('Freq (Hz)')
 close all
 for i = 0:length(Pat16DF)/3 - 1
     figure(i+1)
-    titlestr = sprintf('DF - %3.2fHz', Pat16DF{i*3 + 1}.trailinfo.refsigfreq);
+    titlestr = sprintf('DF - %3.2fHz', Pat16DF{i*3 + 1}.trialinfo.refsigfreq);
 
     
     plot(Pat16DF{i*3 + 1}.nomrefcycle_nm, 'r')

@@ -141,7 +141,7 @@ function res = analyzedata(varargin)
     res.cycleslost = cycleslost;
     res.nomrefcycle_nm = nomrefcycle_nm;
     res.nommeascycle_nm = nommeascycle_nm;
-    res.trailinfo = trialstruct;
+    res.trialinfo = trialstruct;
     
 
 end

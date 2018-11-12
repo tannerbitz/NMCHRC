@@ -1,5 +1,5 @@
 % Patient Data Analysis Script
-patNum = '16';
+patNum = '14';
 path2add = sprintf('../Pat%s/', patNum);
 addpath(path2add);  % add path to data analysis functions
 

@@ -32,7 +32,7 @@ Pat17PF{19} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeut
 Pat17PF{20} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_1-75Hz_Trial2.txt');
 Pat17PF{21} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_1-75Hz_Trial3.txt');
 % PF - 2.00Hz
-%Pat17PF{22} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_2-00Hz_Trial1.txt');
+Pat17PF{22} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_2-00Hz_Trial1.txt');
 Pat17PF{23} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_2-00Hz_Trial2.txt');
 Pat17PF{24} = analyzedata('matfile', matfile, 'vrfile', 'PatNo17_VR_AnklePosNeutral_PF_2-00Hz_Trial3.txt');
 

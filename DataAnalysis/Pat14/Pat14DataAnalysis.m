@@ -1,7 +1,7 @@
 % Patient 14 Data Analysis Script
 addpath ../DataAnalysis/;  % add path to data analysis functions
 
-matfile = 'Pat14MVC.mat';
+matfile = 'Pat17MVC.mat';
 Pat14PF = cell(1);
 % PF - 0.25Hz 
 Pat14PF{1} = analyzedata('matfile', matfile, 'vrfile', 'PatNo14_VR_AnklePosNeutral_PF_0-25Hz_Trial1.txt');

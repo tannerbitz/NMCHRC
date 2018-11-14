@@ -1,14 +1,18 @@
 addpath ../Pat14/
 addpath ../Pat15/
+addpath ../Pat16/
 addpath ../Pat18/
 addpath ../Pat17/
 
-load('Pat17DF_dataanalysis.mat')
-load('Pat17PF_dataanalysis.mat')
+
 load('Pat14DF_dataanalysis.mat')
 load('Pat14PF_dataanalysis.mat')
 load('Pat15DF_dataanalysis.mat')
 load('Pat15PF_dataanalysis.mat')
+load('Pat16DF_dataanalysis.mat')
+load('Pat16PF_dataanalysis.mat')
+load('Pat17DF_dataanalysis.mat')
+load('Pat17PF_dataanalysis.mat')
 load('Pat18DF_dataanalysis.mat')
 load('Pat18PF_dataanalysis.mat')
 
@@ -71,19 +75,18 @@ load('Pat18PF_dataanalysis.mat')
 
 %DF
 close all
-for i = 0:length(Pat17DF)/3 - 1
+for i = 0:length(Pat14DF)/3 - 1
     figure(i+1)
-    titlestr = sprintf('DF - %3.2fHz', Pat17DF{i*3 + 1}.trialinfo.refsigfreq);
-
+    titlestr = sprintf('DF - %3.2fHz', Pat14DF{i*3 + 1}.trialinfo.refsigfreq);
     
-    plot(Pat17DF{i*3 + 1}.nomrefcycle_nm, 'r')
+    %plot(Pat14DF{i*3 + 1}.nomrefcycle_nm, 'r')
     hold on
-    %plot(Pat18DF{i*3 + 2}.nomrefcycle_nm, 'r')
-    %plot(Pat18DF{i*3 + 3}.nomrefcycle_nm, 'r')
+    plot(Pat14DF{i*3 + 2}.nomrefcycle_nm, 'r')
+    %plot(Pat14DF{i*3 + 3}.nomrefcycle_nm, 'r')
 
-    plot(Pat17DF{i*3 + 1}.nommeascycle_nm, 'b')
-    plot(Pat17DF{i*3 + 2}.nommeascycle_nm, 'b--')
-    plot(Pat17DF{i*3 + 3}.nommeascycle_nm, 'b-.')
+    plot(Pat14DF{i*3 + 1}.nommeascycle_nm, 'b')
+    plot(Pat14DF{i*3 + 2}.nommeascycle_nm, 'b--')
+    plot(Pat14DF{i*3 + 3}.nommeascycle_nm, 'b-.')
     hold off
     legend('Ref', 'Trial1', 'Trial2', 'Trial3')
     title(titlestr)
@@ -99,10 +102,10 @@ for i = 0:length(Pat14PF)/3 - 1
     titlestr = sprintf('PF - %3.2fHz', Pat14PF{i*3 + 1}.trialinfo.refsigfreq);
 
     
-    plot(Pat14PF{i*3 + 1}.nomrefcycle_nm, 'r')
+    %plot(Pat14PF{i*3 + 1}.nomrefcycle_nm, 'r')
     hold on
-    %plot(Pat18DF{i*3 + 2}.nomrefcycle_nm, 'r')
-    %plot(Pat18DF{i*3 + 3}.nomrefcycle_nm, 'r')
+    %plot(Pat14PF{i*3 + 2}.nomrefcycle_nm, 'r')
+    plot(Pat14PF{i*3 + 3}.nomrefcycle_nm, 'r')
 
     plot(Pat14PF{i*3 + 1}.nommeascycle_nm, 'b')
     plot(Pat14PF{i*3 + 2}.nommeascycle_nm, 'b--')

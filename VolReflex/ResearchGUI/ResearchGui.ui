@@ -62,8 +62,21 @@
          <string>Settings</string>
         </property>
         <layout class="QGridLayout" name="gridLayout_9">
-         <item row="1" column="0">
-          <widget class="QGroupBox" name="groupBox_6">
+         <item row="6" column="0">
+          <spacer name="verticalSpacer_6">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item row="0" column="0">
+          <widget class="QGroupBox" name="groupBox_3">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -71,13 +84,13 @@
             </size>
            </property>
            <property name="title">
-            <string>Reference Signal</string>
+            <string>Patient</string>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_13">
+           <layout class="QHBoxLayout" name="horizontalLayout_12">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_10">
+             <layout class="QHBoxLayout" name="horizontalLayout_9">
               <item>
-               <widget class="QLabel" name="lbl_referencesignal">
+               <widget class="QLabel" name="lbl_patientnumber">
                 <property name="font">
                  <font>
                   <weight>50</weight>
@@ -93,6 +106,94 @@
                </widget>
               </item>
              </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QGroupBox" name="groupBox_24">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>75</height>
+            </size>
+           </property>
+           <property name="title">
+            <string>Ref. Signal Port</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_20">
+            <item>
+             <widget class="QLabel" name="lbl_refsignalport">
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Select Port</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lbl_refsignalportstatus">
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Status: </string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QGroupBox" name="groupBox_5">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>75</height>
+            </size>
+           </property>
+           <property name="title">
+            <string>DAQ Port</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout">
+            <item>
+             <widget class="QLabel" name="lbl_daqport">
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Select Port</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lbl_daqportstatus">
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="text">
+               <string>Status:</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -132,76 +233,6 @@
            </layout>
           </widget>
          </item>
-         <item row="3" column="0">
-          <widget class="QGroupBox" name="groupBox_5">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>75</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>COM Port</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_17">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_15">
-              <item>
-               <widget class="QLabel" name="lbl_comport">
-                <property name="font">
-                 <font>
-                  <weight>50</weight>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QGroupBox" name="groupBox_7">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>75</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>Serial Status</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_18">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_16">
-              <item>
-               <widget class="QLabel" name="lbl_serialstatus">
-                <property name="font">
-                 <font>
-                  <weight>50</weight>
-                  <bold>false</bold>
-                 </font>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignCenter</set>
-                </property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-           </layout>
-          </widget>
-         </item>
          <item row="5" column="0">
           <widget class="QPushButton" name="btn_resetserial">
            <property name="minimumSize">
@@ -221,21 +252,8 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
-          <spacer name="verticalSpacer_6">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item row="0" column="0">
-          <widget class="QGroupBox" name="groupBox_3">
+         <item row="1" column="0">
+          <widget class="QGroupBox" name="groupBox_6">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -243,13 +261,13 @@
             </size>
            </property>
            <property name="title">
-            <string>Patient</string>
+            <string>Reference Signal</string>
            </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_12">
+           <layout class="QHBoxLayout" name="horizontalLayout_13">
             <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_9">
+             <layout class="QHBoxLayout" name="horizontalLayout_10">
               <item>
-               <widget class="QLabel" name="lbl_patientnumber">
+               <widget class="QLabel" name="lbl_referencesignal">
                 <property name="font">
                  <font>
                   <weight>50</weight>
@@ -478,39 +496,24 @@
                                  </widget>
                                 </item>
                                 <item>
-                                 <widget class="QWidget" name="widget" native="true">
-                                  <property name="sizePolicy">
-                                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-                                    <horstretch>0</horstretch>
-                                    <verstretch>1</verstretch>
-                                   </sizepolicy>
+                                 <widget class="QPushButton" name="btn_selectdaqport">
+                                  <property name="text">
+                                   <string>Select as DAQ Port</string>
                                   </property>
-                                  <property name="minimumSize">
-                                   <size>
-                                    <width>0</width>
-                                    <height>0</height>
-                                   </size>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QPushButton" name="btn_selectrefsignalport">
+                                  <property name="text">
+                                   <string>Select as Ref. Signal Port</string>
                                   </property>
-                                  <layout class="QHBoxLayout" name="horizontalLayout_25">
-                                   <item>
-                                    <layout class="QHBoxLayout" name="horizontalLayout_24">
-                                     <item>
-                                      <widget class="QPushButton" name="btn_selectcomport">
-                                       <property name="text">
-                                        <string>Select</string>
-                                       </property>
-                                      </widget>
-                                     </item>
-                                     <item>
-                                      <widget class="QPushButton" name="btn_refreshcomlist">
-                                       <property name="text">
-                                        <string>Refresh List</string>
-                                       </property>
-                                      </widget>
-                                     </item>
-                                    </layout>
-                                   </item>
-                                  </layout>
+                                 </widget>
+                                </item>
+                                <item>
+                                 <widget class="QPushButton" name="btn_refreshcomlist">
+                                  <property name="text">
+                                   <string>Refresh List</string>
+                                  </property>
                                  </widget>
                                 </item>
                                </layout>

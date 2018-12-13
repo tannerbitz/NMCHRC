@@ -11,6 +11,7 @@ import serial
 import datetime
 import time
 from collections import deque
+import random
 
 def getComPorts():
     tempPorts = []
@@ -28,6 +29,7 @@ def isStringAnInt(s):
 
 # Serial Object
 ser = None
+serRefSignal = None
 serialbaudrate = 115200
 serialtimeout = 1
 serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
@@ -113,35 +115,88 @@ class VolReflexTrialThread(QThread):
         measuredvalqueue = deque([0, 0, 0])
         [minreferenceval, maxreferenceval, referencevalspan] = self.getMinMaxRefLevels()
         starttime = time.time()
-        if refsignaltype == 'sine':
-            period = 1/refsignalfreq
-            trialduration = 20*period + 5  #trial will last 20 periods plus a 5 second adjustment period
-        else:
-            trialduration = 60
-        endtime = starttime + trialduration
         self.printToVolReflexLabel.emit("Match the Reference Line")
-        while (time.time() < endtime):
-            [referenceval, measuredval] = self.getMeasRefSignals()
-            measuredvalqueue.popleft()
-            measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
-            measuredval = np.mean(measuredvalqueue)
-            referenceval = int(serialvals[referencesignalchannel])
-            if (measuredval < bottomborder):
-                measuredval = bottomborder
-            elif (measuredval > topborder):
-                measuredval = topborder
 
-            if (refsignaltype in ['prbs']):   #PRBS input
+
+        if (refsignaltype in ['prbs']):   #PRBS input
+            trialduration = 60
+            endtime = starttime + trialduration
+            while (time.time() < endtime):
+                [referenceval, measuredval] = self.getMeasRefSignals()
+                measuredvalqueue.popleft()
+                measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
+                measuredval = np.mean(measuredvalqueue)
+                referenceval = int(serialvals[referencesignalchannel])
+                if (measuredval < bottomborder):
+                    measuredval = bottomborder
+                elif (measuredval > topborder):
+                    measuredval = topborder
+
                 if (referenceval > 2048):   #high input
                     referenceval = maxreferenceval
                 else:                       #low input
                     referenceval = minreferenceval
-            elif (refsignaltype in ['sine']):
+
+                progressbarval = round(100*(time.time() - starttime)/trialduration)
                 referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
+        elif (refsignaltype in ['sine']):
+            numcycles = 6
 
-            progressbarval = round(100*(time.time() - starttime)/trialduration)
-            self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
+            for icycle in range(0, numcycles):
+                tcycle = 1/refsignalfreq
+                randtime = random.uniform(6.0, 8.0)
+                starttime_rand = time.time()
+                endtime_rand = starttime_rand + randtime
+                starttime_cycle = endtime_rand
+                endtime_cycle = starttime_cycle + 1/refsignalfreq
+
+                # Random Time Between Cycles
+                while (time.time() < endtime_rand):
+                    [referenceval, measuredval] = self.getMeasRefSignals()
+                    measuredvalqueue.popleft()
+                    measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
+                    measuredval = np.mean(measuredvalqueue)
+                    referenceval = int(serialvals[referencesignalchannel])
+                    if (measuredval < bottomborder):
+                        measuredval = bottomborder
+                    elif (measuredval > topborder):
+                        measuredval = topborder
+
+                    if (referenceval > 2048):   #high input
+                        referenceval = maxreferenceval
+                    else:                       #low input
+                        referenceval = minreferenceval
+
+                    progressbarval = round((icycle)/numcycles*100)
+                    referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
+
+                # Trigger reference signal generator (Due) to output a sine cycle
+                trigger_str = b'<0>'
+                serRefSignal.write(trigger_str)
+                # Cycle Time
+                while (time.time() < endtime_cycle):
+                    [referenceval, measuredval] = self.getMeasRefSignals()
+                    measuredvalqueue.popleft()
+                    measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
+                    measuredval = np.mean(measuredvalqueue)
+                    referenceval = int(serialvals[referencesignalchannel])
+                    if (measuredval < bottomborder):
+                        measuredval = bottomborder
+                    elif (measuredval > topborder):
+                        measuredval = topborder
+
+                    if (referenceval > 2048):   #high input
+                        referenceval = maxreferenceval
+                    else:                       #low input
+                        referenceval = minreferenceval
+
+                    progressbarval = round((icycle + 1)/numcycles*100)
+                    referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
+
 
         self.supplyDaqReadings.emit(0,0,0)
         self.printToVolReflexLabel.emit("Done")
@@ -164,7 +219,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     # Setting Data
     _patientnumber = None
-    _comport = None
+    _daqport = None
+    _refsignalport = None
     _serialstatus = None
 
     # MVC Trial Data
@@ -212,13 +268,21 @@ class MainWindow(QtWidgets.QMainWindow):
             self.list_measuredsignal.addItem("Channel {}".format(channel))
 
     # Button functions
-    def selectComPort(self):
+    def selectDaqPort(self):
         portobj = self.list_comport.selectedItems()
         for i in list(portobj):
             selectedport = str(i.text())
         selectedportparts = selectedport.split(" ")
-        self._comport = selectedportparts[0]
-        self.lbl_comport.setText(self._comport)
+        self._daqport = selectedportparts[0]
+        self.lbl_daqport.setText(self._daqport)
+
+    def selectRefSignalPort(self):
+        portobj = self.list_comport.selectedItems()
+        for i in list(portobj):
+            selectedport = str(i.text())
+        selectedportparts = selectedport.split(" ")
+        self._refsignalport = selectedportparts[0]
+        self.lbl_refsignalport.setText(self._refsignalport)
 
     def selectReferenceSignalChannel(self):
         global referencesignalchannel
@@ -260,21 +324,48 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resetSerial(self):
         global ser
-        if (self._comport is None):
-            self.lbl_serialstatus.setText("Select COM Port")
-        elif ((self._comport is not None) and (isinstance(ser, serial.Serial))):
+        global serRefSignal
+        # Check COM Port Paths
+        if (self._daqport is None):
+            self.lbl_daqportstatus.setText("Select DAQ Port")
+            return
+        elif (self._refsignalport is None):
+            self.lbl_refsignalportstatus.setText("Select Ref Signal Port")
+            return
+        elif (self._daqport is not None and self._refsignalport is not None and self._refsignalport == self._daqport):
+            self.lbl_daqportstatus.setText("Status: Error - Ports are Same")
+            self.lbl_refsignalportstatus.setText("Status: Error - Ports are Same")
+            return
+
+        # (Re)set DAQ COM Port
+        if ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
             try:
                 ser.close()
-                ser = serial.Serial(port=self._comport, baudrate=serialbaudrate, timeout=serialtimeout)
-                self.lbl_serialstatus.setText("Connected")
+                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate)
+                self.lbl_daqportstatus.setText("Status: Connected")
             except serial.SerialException as e:
-                self.lbl_serialstatus.setText("Error Connecting")
-        elif ((self._comport is not None) and (not isinstance(ser, serial.Serial))):
+                self.lbl_daqportstatus.setText("Status: Error Connecting")
+        elif ((self._daqport is not None) and (not isinstance(ser, serial.Serial))):
             try:
-                ser = serial.Serial(port=self._comport, baudrate=serialbaudrate, timeout=serialtimeout)
-                self.lbl_serialstatus.setText("Connected")
+                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate)
+                self.lbl_daqportstatus.setText("Status: Connected")
             except serial.SerialException as e:
-                self.lbl_serialstatus.setText("Error Connecting")
+                self.lbl_daqportstatus.setText("Status: Error Connecting")
+
+        # (Re)set Reference Signal COM Port
+        if ((self._refsignalport is not None) and (isinstance(serRefSignal, serial.Serial))):
+            try:
+                serRefSignal.close()
+                serRefSignal = serial.Serial(port=self._refsignalport, baudrate=serialbaudrate)
+                self.lbl_refsignalportstatus.setText("Status: Connected")
+            except serial.SerialException as e:
+                self.lbl_refsignalportstatus.setText("Status: Error Connecting")
+        elif ((self._refsignalport is not None) and (not isinstance(serRefSignal, serial.Serial))):
+            try:
+                serRefSignal = serial.Serial(port=self._refsignalport, baudrate=serialbaudrate)
+                self.lbl_refsignalportstatus.setText("Status: Connected")
+            except serial.SerialException as e:
+                self.lbl_refsignalportstatus.setText("Status: Error Connecting")
 
     def setMvcTrialFlexion(self, btn_mvcflexion):
         tempStr = btn_mvcflexion.text()
@@ -597,6 +688,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def setReferenceSignal(self, btn_volreflexreferencesignal):
         global refsignaltype
         global refsignalfreq
+        global serRefSignal
         btntext = btn_volreflexreferencesignal.text()
         if (btntext == "Other"):
             self._volreflexreferencesignal = None
@@ -617,6 +709,12 @@ class MainWindow(QtWidgets.QMainWindow):
             hzind = freqtext.find('Hz')
             freqtext = freqtext[0:hzind]
             refsignalfreq = float(freqtext)
+
+            # Change Freq on Due
+            refSigChangeFreqStr = "<1,{}>".format(freqtext)
+            refSigChangeFreqBstr = str.encode(refSigChangeFreqStr)
+            serRefSignal.write(refSigChangeFreqBstr)
+
             # make frequency info ready to add to filename
             btntext = btntext.replace(" ", "")
             self._volreflexreferencesignal = btntext.replace(".", "-")
@@ -711,6 +809,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def startVoluntaryReflexTrail(self):
         global ser
+        global serRefSignal
         global measuredsignalchannel
         global referencesignalchannel
         #Check Settings
@@ -772,7 +871,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lbl_volreflexlivenotes.setText(inputStr)
 
     def connectButtonsInSetupTab(self):
-        self.btn_selectcomport.clicked.connect(self.selectComPort)
+        self.btn_selectdaqport.clicked.connect(self.selectDaqPort)
+        self.btn_selectrefsignalport.clicked.connect(self.selectRefSignalPort)
         self.btn_refreshcomlist.clicked.connect(self.refreshComPortList)
         self.btn_selectreferencesignal.clicked.connect(self.selectReferenceSignalChannel)
         self.btn_selectmeasuredsignal.clicked.connect(self.selectMeasuredSignalChannel)

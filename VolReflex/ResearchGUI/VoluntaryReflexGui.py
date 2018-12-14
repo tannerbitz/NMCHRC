@@ -45,15 +45,24 @@ volreflexflexion = None
 refsignaltype = None
 refsignalfreq = None
 serialvals = None
-def getSerialResponse():
+def getSerialResponse(optlabel=None):
     global ser
-    endtime = time.time() + 0.5
-    serialstring = ""
-    while (time.time() < endtime):
-        newchar = ser.read().decode()
-        serialstring += newchar
-        if (newchar == '>'):
+    # endtime = time.time() + 0.5
+    # serialstring = ""
+    # while (time.time() < endtime):
+    #     newchar = ser.read().decode()
+    #     serialstring += newchar
+    #     if (newchar == '>'):
+    #         break
+    optlabel.setText("getSerialResponse method entered")
+    for i in range(0, 5):
+        ser.write(b'<2>')
+        serialstring = ser.readline().decode()
+        if (len(serialstring) != 0):
             break
+        else:
+            if optLabel is not None:
+                optlabel.setText("Serial Timeouts: {}".format(i))
     return serialstring.strip('<>')
 
 
@@ -98,6 +107,8 @@ class VolReflexTrialThread(QThread):
         global refsignaltype
         global refsignalfreq
         global serialvals
+        global serRefSignal
+        global ser
         self.printToVolReflexLabel.emit("Rest Phase")
         starttime = time.time()
         zeroduration = 5
@@ -824,7 +835,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
             return
         if not (isinstance(ser, serial.Serial)):
-            self.lbl_volreflexlivenotes.setText("Connect Serial Device")
+            self.lbl_volreflexlivenotes.setText("Connect DAQ Device")
+            return
+        if not (isinstance(serRefSignal, serial.Serial)):
+            self.lbl_volreflexlivenotes.setText("Connect Ref Signal Device")
             return
         if (self._volreflexankleposition is None):
             self.lbl_volreflexlivenotes.setText("Set Ankle Positon")
@@ -832,6 +846,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if (volreflexflexion is None):
             self.lbl_volreflexlivenotes.setText("Set Flexion")
             return
+
 
         # Ensure channels reading correct voltage Ranges
         voltagerangecommand_measuredsignal = "<5,{},1>".format(measuredsignalchannel)   # assuems -5V to +5V readings
@@ -844,7 +859,9 @@ class MainWindow(QtWidgets.QMainWindow):
         startStr = "<0,{},{},{},{},{},{},{}>".format(self._volreflexfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
         bStartStr = str.encode(startStr)
         ser.write(bStartStr) #start writing to sd
-        serialstring = getSerialResponse()
+
+        serialstring = getSerialResponse(self.lbl_volreflexlivenotes)
+
         if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
             self.lbl_volreflexlivenotes.setText(serialstring)
             return
@@ -886,6 +903,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_maximize.clicked.connect(self.maximizeWindow)
         self.btn_close.clicked.connect(self.closeWindow)
         self.btn_setmvcmanual.clicked.connect(self.setmvcmanual)
+
 
     def setmvcmanual(self):
         mvctable['df'] = float(self.lineedit_dfmvcman.text())

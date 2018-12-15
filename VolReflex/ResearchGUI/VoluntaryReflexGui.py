@@ -153,8 +153,11 @@ class VolReflexTrialThread(QThread):
                 starttime_rand = time.time()
                 endtime_rand = starttime_rand + randtime
                 starttime_cycle = endtime_rand
-                endtime_cycle = starttime_cycle + 1/refsignalfreq
-
+                if (icycle < numcycles -1):
+                    endtime_cycle = starttime_cycle + 1/refsignalfreq
+                else:
+                    endtime_cycle = starttime_cycle + 1/refsignalfreq + 3
+                    
                 # Random Time Between Cycles
                 while (time.time() < endtime_rand):
                     [referenceval, measuredval] = self.getMeasRefSignals()

@@ -2,7 +2,7 @@
 #include <Wire.h>
 
 
-// Gloabl Data
+// Global Data
 const uint8_t MCP4725_ADDR = 0x60;
 float TsSine = 1000; // 1ms
 volatile int volt_write =0;

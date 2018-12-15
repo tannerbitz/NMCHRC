@@ -12,6 +12,7 @@ import datetime
 import time
 from collections import deque
 import random
+import requests
 
 def getComPorts():
     tempPorts = []
@@ -29,10 +30,12 @@ def isStringAnInt(s):
 
 # Serial Object
 ser = None
-serRefSignal = None
 serialbaudrate = 115200
 serialtimeout = 1
 serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
+
+# Ref Signal Generator (NodeMcu)
+ip_add = "192.168.0.107"
 
 # Global Data
 referencesignalchannel = None
@@ -45,24 +48,15 @@ volreflexflexion = None
 refsignaltype = None
 refsignalfreq = None
 serialvals = None
-def getSerialResponse(optlabel=None):
+def getSerialResponse():
     global ser
-    # endtime = time.time() + 0.5
-    # serialstring = ""
-    # while (time.time() < endtime):
-    #     newchar = ser.read().decode()
-    #     serialstring += newchar
-    #     if (newchar == '>'):
-    #         break
-    optlabel.setText("getSerialResponse method entered")
-    for i in range(0, 5):
-        ser.write(b'<2>')
-        serialstring = ser.readline().decode()
-        if (len(serialstring) != 0):
+    endtime = time.time() + 0.5
+    serialstring = ""
+    while (time.time() < endtime):
+        newchar = ser.read().decode()
+        serialstring += newchar
+        if (newchar == '>'):
             break
-        else:
-            if optLabel is not None:
-                optlabel.setText("Serial Timeouts: {}".format(i))
     return serialstring.strip('<>')
 
 
@@ -107,8 +101,6 @@ class VolReflexTrialThread(QThread):
         global refsignaltype
         global refsignalfreq
         global serialvals
-        global serRefSignal
-        global ser
         self.printToVolReflexLabel.emit("Rest Phase")
         starttime = time.time()
         zeroduration = 5
@@ -185,8 +177,8 @@ class VolReflexTrialThread(QThread):
                     self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
                 # Trigger reference signal generator (Due) to output a sine cycle
-                trigger_str = b'<0>'
-                serRefSignal.write(trigger_str)
+                newcycleaddress = "http://" + ip_add + "/NewCycle"
+                requests.get(newcycleaddress)
                 # Cycle Time
                 while (time.time() < endtime_cycle):
                     [referenceval, measuredval] = self.getMeasRefSignals()
@@ -231,7 +223,6 @@ class MainWindow(QtWidgets.QMainWindow):
     # Setting Data
     _patientnumber = None
     _daqport = None
-    _refsignalport = None
     _serialstatus = None
 
     # MVC Trial Data
@@ -287,13 +278,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self._daqport = selectedportparts[0]
         self.lbl_daqport.setText(self._daqport)
 
-    def selectRefSignalPort(self):
-        portobj = self.list_comport.selectedItems()
-        for i in list(portobj):
-            selectedport = str(i.text())
-        selectedportparts = selectedport.split(" ")
-        self._refsignalport = selectedportparts[0]
-        self.lbl_refsignalport.setText(self._refsignalport)
 
     def selectReferenceSignalChannel(self):
         global referencesignalchannel
@@ -335,48 +319,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def resetSerial(self):
         global ser
-        global serRefSignal
-        # Check COM Port Paths
         if (self._daqport is None):
-            self.lbl_daqportstatus.setText("Select DAQ Port")
-            return
-        elif (self._refsignalport is None):
-            self.lbl_refsignalportstatus.setText("Select Ref Signal Port")
-            return
-        elif (self._daqport is not None and self._refsignalport is not None and self._refsignalport == self._daqport):
-            self.lbl_daqportstatus.setText("Status: Error - Ports are Same")
-            self.lbl_refsignalportstatus.setText("Status: Error - Ports are Same")
-            return
-
-        # (Re)set DAQ COM Port
-        if ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
+            self.lbl_daqportstatus.setText("Select COM Port")
+        elif ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
             try:
                 ser.close()
-                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate)
-                self.lbl_daqportstatus.setText("Status: Connected")
+                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
+                self.lbl_daqportstatus.setText("Connected")
             except serial.SerialException as e:
-                self.lbl_daqportstatus.setText("Status: Error Connecting")
+                self.lbl_daqportstatus.setText("Error Connecting")
         elif ((self._daqport is not None) and (not isinstance(ser, serial.Serial))):
             try:
-                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate)
-                self.lbl_daqportstatus.setText("Status: Connected")
+                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
+                self.lbl_daqportstatus.setText("Connected")
             except serial.SerialException as e:
-                self.lbl_daqportstatus.setText("Status: Error Connecting")
-
-        # (Re)set Reference Signal COM Port
-        if ((self._refsignalport is not None) and (isinstance(serRefSignal, serial.Serial))):
-            try:
-                serRefSignal.close()
-                serRefSignal = serial.Serial(port=self._refsignalport, baudrate=serialbaudrate)
-                self.lbl_refsignalportstatus.setText("Status: Connected")
-            except serial.SerialException as e:
-                self.lbl_refsignalportstatus.setText("Status: Error Connecting")
-        elif ((self._refsignalport is not None) and (not isinstance(serRefSignal, serial.Serial))):
-            try:
-                serRefSignal = serial.Serial(port=self._refsignalport, baudrate=serialbaudrate)
-                self.lbl_refsignalportstatus.setText("Status: Connected")
-            except serial.SerialException as e:
-                self.lbl_refsignalportstatus.setText("Status: Error Connecting")
+                self.lbl_daqportstatus.setText("Error Connecting")
 
     def setMvcTrialFlexion(self, btn_mvcflexion):
         tempStr = btn_mvcflexion.text()
@@ -699,7 +656,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def setReferenceSignal(self, btn_volreflexreferencesignal):
         global refsignaltype
         global refsignalfreq
-        global serRefSignal
         btntext = btn_volreflexreferencesignal.text()
         if (btntext == "Other"):
             self._volreflexreferencesignal = None
@@ -721,10 +677,9 @@ class MainWindow(QtWidgets.QMainWindow):
             freqtext = freqtext[0:hzind]
             refsignalfreq = float(freqtext)
 
-            # Change Freq on Due
-            refSigChangeFreqStr = "<1,{}>".format(freqtext)
-            refSigChangeFreqBstr = str.encode(refSigChangeFreqStr)
-            serRefSignal.write(refSigChangeFreqBstr)
+            # Change Freq on Ref Signal Generator (NodeMcu)
+            changefreqadd = "http://" + ip_add + "/ChangeFreq?Freq=" + freqtext
+            requests.get(changefreqadd)
 
             # make frequency info ready to add to filename
             btntext = btntext.replace(" ", "")
@@ -820,7 +775,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def startVoluntaryReflexTrail(self):
         global ser
-        global serRefSignal
         global measuredsignalchannel
         global referencesignalchannel
         #Check Settings
@@ -837,16 +791,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if not (isinstance(ser, serial.Serial)):
             self.lbl_volreflexlivenotes.setText("Connect DAQ Device")
             return
-        if not (isinstance(serRefSignal, serial.Serial)):
-            self.lbl_volreflexlivenotes.setText("Connect Ref Signal Device")
-            return
         if (self._volreflexankleposition is None):
             self.lbl_volreflexlivenotes.setText("Set Ankle Positon")
             return
         if (volreflexflexion is None):
             self.lbl_volreflexlivenotes.setText("Set Flexion")
             return
-
 
         # Ensure channels reading correct voltage Ranges
         voltagerangecommand_measuredsignal = "<5,{},1>".format(measuredsignalchannel)   # assuems -5V to +5V readings
@@ -859,9 +809,7 @@ class MainWindow(QtWidgets.QMainWindow):
         startStr = "<0,{},{},{},{},{},{},{}>".format(self._volreflexfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
         bStartStr = str.encode(startStr)
         ser.write(bStartStr) #start writing to sd
-
-        serialstring = getSerialResponse(self.lbl_volreflexlivenotes)
-
+        serialstring = getSerialResponse()
         if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
             self.lbl_volreflexlivenotes.setText(serialstring)
             return
@@ -889,7 +837,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def connectButtonsInSetupTab(self):
         self.btn_selectdaqport.clicked.connect(self.selectDaqPort)
-        self.btn_selectrefsignalport.clicked.connect(self.selectRefSignalPort)
         self.btn_refreshcomlist.clicked.connect(self.refreshComPortList)
         self.btn_selectreferencesignal.clicked.connect(self.selectReferenceSignalChannel)
         self.btn_selectmeasuredsignal.clicked.connect(self.selectMeasuredSignalChannel)

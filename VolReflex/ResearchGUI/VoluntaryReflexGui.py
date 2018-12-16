@@ -171,7 +171,7 @@ class VolReflexTrialThread(QThread):
                         measuredval = topborder
 
                     progressbarval = round((icycle)/numcycles*100)
-                    referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    referenceval = 0
                     self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
                 # Trigger reference signal generator (Due) to output a sine cycle

@@ -175,7 +175,10 @@ class VolReflexTrialThread(QThread):
                     self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
                 # Trigger reference signal generator (Due) to output a sine cycle
-                newcycleaddress = "http://" + ip_add + "/NewCycle"
+                if volreflexflexion in ["DF", "PF"]:
+                    newcycleaddress = "http://" + ip_add + "/NewCycleUni"
+                if volreflexflexion in ["DFPF"]:
+                    newcycleaddress = "http://" + ip_add + "/NewCycleMulti"
                 requests.get(newcycleaddress)
                 # Cycle Time
                 while (time.time() < endtime_cycle):

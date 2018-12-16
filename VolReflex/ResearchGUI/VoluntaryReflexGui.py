@@ -157,7 +157,7 @@ class VolReflexTrialThread(QThread):
                     endtime_cycle = starttime_cycle + 1/refsignalfreq
                 else:
                     endtime_cycle = starttime_cycle + 1/refsignalfreq + 3
-                    
+
                 # Random Time Between Cycles
                 while (time.time() < endtime_rand):
                     [referenceval, measuredval] = self.getMeasRefSignals()
@@ -169,11 +169,6 @@ class VolReflexTrialThread(QThread):
                         measuredval = bottomborder
                     elif (measuredval > topborder):
                         measuredval = topborder
-
-                    if (referenceval > 2048):   #high input
-                        referenceval = maxreferenceval
-                    else:                       #low input
-                        referenceval = minreferenceval
 
                     progressbarval = round((icycle)/numcycles*100)
                     referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
@@ -193,11 +188,6 @@ class VolReflexTrialThread(QThread):
                         measuredval = bottomborder
                     elif (measuredval > topborder):
                         measuredval = topborder
-
-                    if (referenceval > 2048):   #high input
-                        referenceval = maxreferenceval
-                    else:                       #low input
-                        referenceval = minreferenceval
 
                     progressbarval = round((icycle + 1)/numcycles*100)
                     referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ

@@ -16,7 +16,7 @@ IPAddress subnet(255, 255, 255, 0);//set subnet
 
 // Global Data
 const uint8_t MCP4725_ADDR = 0x60;
-volatile int volt_write = 2048;
+volatile int volt_write = 0;
 
 float sinefreq = 1;
 float sec2millis = 1000;
@@ -105,6 +105,13 @@ void loop(){
     Wire.write(0x40);
     Wire.write(volt_write >> 4);
     Wire.write((volt_write & 15) << 4);
+    Wire.endTransmission();
+  }
+  else{
+    Wire.beginTransmission(MCP4725_ADDR);
+    Wire.write(0x40);
+    Wire.write(0 >> 4);
+    Wire.write((0 & 15) << 4);
     Wire.endTransmission();
   }
 }

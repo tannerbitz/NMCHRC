@@ -26,9 +26,9 @@ float cycleend_writecount = round(1/sinefreq*sec2millis);
 bool dacwriteflag = false;
 
 
-void DacWrite(){
+void UnidirectionFlex(){
   count++;
-  volt_write = 2048 + floor(2047.99*sin(2.0*PI*sinefreq*millis2sec*count));
+  volt_write = floor(2048 - 2047.1*cos(2.0*PI*sinefreq*millis2sec*count));
 
   if (count > cycleend_writecount){
     timer.detach();
@@ -38,6 +38,16 @@ void DacWrite(){
 }
 
 
+void MultidirectionFlex(){
+  count++;
+  volt_write = floor(2048 + (2047.1*sin(2.0*PI*sinefreq*millis2sec*count)));
+
+  if (count > cycleend_writecount){
+    timer.detach();
+    count = 0;
+    dacwriteflag = false;
+  }
+}
 // Parse url for freq
 void ChangeFreq(){
   String sinefreqstr = server.arg("Freq");
@@ -46,15 +56,22 @@ void ChangeFreq(){
   server.send(200, "");
 }
 
-void NewCycle()
+void NewCycleUni()
 {
   count = 0;
-  timer.attach_ms(1, DacWrite);
+  timer.attach_ms(1, UnidirectionFlex);
   dacwriteflag = true;
   server.send(200, "");
 }
 
 
+void NewCycleMulti()
+{
+  count = 0;
+  timer.attach_ms(1, MultidirectionFlex);
+  dacwriteflag = true;
+  server.send(200, "");
+}
 
 
 void setup(){
@@ -74,7 +91,8 @@ void setup(){
   Serial.print("IP Address: ");
   Serial.print(WiFi.localIP());
   server.on("/ChangeFreq", ChangeFreq);
-  server.on("/NewCycle", NewCycle);
+  server.on("/NewCycleUni", NewCycleUni);
+  server.on("/NewCycleMulti", NewCycleMulti);
   server.begin();
 
 }

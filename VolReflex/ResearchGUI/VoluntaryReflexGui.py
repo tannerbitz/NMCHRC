@@ -144,8 +144,13 @@ class VolReflexTrialThread(QThread):
                 referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
                 self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
-        elif (refsignaltype in ['sine']):
+        elif (refsignaltype in ['sine', 'step']):
             numcycles = 6
+            if refsignaltype == "step":
+                steptime = 3.0
+                changesteptimeurl = "http://" + ip_add + "/ChangeStepTime?T=" + str(steptime)
+                requests.get(changesteptimeurl)
+
 
             for icycle in range(0, numcycles):
                 tcycle = 1/refsignalfreq
@@ -153,7 +158,10 @@ class VolReflexTrialThread(QThread):
                 starttime_rand = time.time()
                 endtime_rand = starttime_rand + randtime
                 starttime_cycle = endtime_rand
-                endtime_cycle = starttime_cycle + 1/refsignalfreq
+                if refsignaltype == "sine":
+                    endtime_cycle = starttime_cycle + 1/refsignalfreq
+                elif refsignaltype == "step":
+                    endtime_cycle = starttime_cycle + steptime
 
                 # Random Time Between Cycles
                 while (time.time() < endtime_rand):
@@ -172,10 +180,13 @@ class VolReflexTrialThread(QThread):
                     self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
                 # Trigger reference signal generator (Due) to output a sine cycle
-                if volreflexflexion in ["DF", "PF"]:
-                    newcycleaddress = "http://" + ip_add + "/NewCycleUni"
-                elif volreflexflexion in ["DFPF"]:
-                    newcycleaddress = "http://" + ip_add + "/NewCycleMulti"
+                if refsignaltype == "sine":
+                    if volreflexflexion in ["DF", "PF"]:
+                        newcycleaddress = "http://" + ip_add + "/NewCycleUni"
+                    elif volreflexflexion in ["DFPF"]:
+                        newcycleaddress = "http://" + ip_add + "/NewCycleMulti"
+                elif refsignaltype == "step":
+                    newcycleaddress = "http://" + ip_add + "/NewCycleStep"
                 requests.get(newcycleaddress)
                 # Cycle Time
                 while (time.time() < endtime_cycle):
@@ -190,10 +201,22 @@ class VolReflexTrialThread(QThread):
                         measuredval = topborder
 
                     progressbarval = round((icycle + 1)/numcycles*100)
-                    if volreflexflexion in ["DF", "DFPF"]:
-                        referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
-                    elif volreflexflexion == "PF":
-                        referenceval = maxreferenceval - (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    if refsignaltype == "sine":
+                        if volreflexflexion in ["DF", "DFPF"]:
+                            referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                        elif volreflexflexion == "PF":
+                            referenceval = maxreferenceval - (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    elif refsignaltype == "step":
+                        if volreflexflexion ==  "DF":
+                            if referenceval < 2048:
+                                referenceval = minreferenceval
+                            else:
+                                referenceval = maxreferenceval
+                        elif volreflexflexion == "PF":
+                            if referenceval < 2048:
+                                referenceval = maxreferenceval
+                            else:
+                                referenceval = minreferenceval
                     self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
 
             #Extra 3 seconds of padding
@@ -217,15 +240,10 @@ class VolReflexTrialThread(QThread):
         self.printToVolReflexLabel.emit("Done")
         ser.write(b'<1>')
 
-    def stepRun(self):
-        whatever = 0
 
     def run(self):
         global refsignaltype
-        if refsignaltype in ['sine', 'prbs', 'other']:
-            self.standardRun()
-        elif refsignaltype in ['step']:
-            self.stepRun()
+        self.standardRun()
 
 
 class MainWindow(QtWidgets.QMainWindow):

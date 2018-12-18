@@ -153,7 +153,6 @@ class VolReflexTrialThread(QThread):
 
 
             for icycle in range(0, numcycles):
-                tcycle = 1/refsignalfreq
                 randtime = random.uniform(6.0, 8.0)
                 starttime_rand = time.time()
                 endtime_rand = starttime_rand + randtime

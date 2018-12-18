@@ -24,6 +24,8 @@ float millis2sec = 0.001;
 float count = 0;
 float cycleend_writecount = round(1/sinefreq*sec2millis);
 bool dacwriteflag = false;
+float step_t_length = 3.0;  //length of time step is on (in seconds)
+float step_writecount = round(step_t_length*sec2millis);      //number of times StepSignal will be called before it detaches the timer
 
 
 void UnidirectionFlex(){
@@ -48,6 +50,26 @@ void MultidirectionFlex(){
     dacwriteflag = false;
   }
 }
+
+void StepSignal(){
+  count++;
+  volt_write = 4095;
+
+  if (count > step_writecount){
+    timer.detach();
+    count = 0;
+    dacwriteflag = false;
+  }
+}
+
+void ChangeStepTime(){
+  String step_t_length_str = server.arg("T");
+  step_t_length = step_t_length_str.toFloat();
+  step_writecount = round(step_t_length*sec2millis);
+  server.send(200, "");
+}
+
+
 // Parse url for freq
 void ChangeFreq(){
   String sinefreqstr = server.arg("Freq");
@@ -73,6 +95,13 @@ void NewCycleMulti()
   server.send(200, "");
 }
 
+void NewCycleStep()
+{
+  count = 0;
+  timer.attach_ms(1, StepSignal);
+  dacwriteflag = true;
+  server.send(200, "");
+}
 
 void setup(){
 
@@ -93,6 +122,8 @@ void setup(){
   server.on("/ChangeFreq", ChangeFreq);
   server.on("/NewCycleUni", NewCycleUni);
   server.on("/NewCycleMulti", NewCycleMulti);
+  server.on("/NewCycleStep", NewCycleStep);
+  server.on("/ChangeStepTime", ChangeStepTime);
   server.begin();
 
 }

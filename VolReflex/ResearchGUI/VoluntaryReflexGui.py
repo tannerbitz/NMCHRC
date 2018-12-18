@@ -153,7 +153,7 @@ class VolReflexTrialThread(QThread):
 
 
             for icycle in range(0, numcycles):
-                randtime = random.uniform(6.0, 8.0)
+                randtime = random.uniform(4.0, 6.0)
                 starttime_rand = time.time()
                 endtime_rand = starttime_rand + randtime
                 starttime_cycle = endtime_rand
@@ -594,15 +594,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reference_line = pg.PlotCurveItem()
         self.measured_line = pg.PlotCurveItem()
         self.zero_line = pg.PlotCurveItem()
+        self.target_line = pg.PlotCurveItem()
+        self.target_line2 = pg.PlotCurveItem()
 
         # Define line properties and set properties
         reference_line_pen = pg.mkPen(color='c', width=30, style=QtCore.Qt.SolidLine)
         measured_line_pen = pg.mkPen(color='r', width=10, style=QtCore.Qt.SolidLine)
         zero_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
+        target_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
 
         self.measured_line.setPen(measured_line_pen)
         self.zero_line.setPen(zero_line_pen)
         self.reference_line.setPen(reference_line_pen)
+        self.target_line.setPen(target_line_pen)
+        self.target_line2.setPen(target_line_pen)
 
         # Set lines in initial position
         xdata = np.array([0, 1])
@@ -610,11 +615,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.reference_line.setData(x=xdata, y=ydata)
         self.measured_line.setData(x=xdata, y=ydata)
         self.zero_line.setData(x=xdata, y=ydata)
+        self.target_line.setData(x=xdata, y=ydata)
+        self.target_line2.setData(x=xdata, y=ydata)
 
         # Add lines to plot
         self.plt.addItem(self.reference_line)
         self.plt.addItem(self.measured_line)
         self.plt.addItem(self.zero_line)
+        self.plt.addItem(self.target_line)
 
         # Redo Ankle Position Radiobutton text
         self.rbtn_volreflex5pf.setText(u' 5\N{DEGREE SIGN} PF')
@@ -646,18 +654,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # Group Voluntary Reflex Sinusoid Freqency RadioButtons
         self.volreflexrefsigbtngroup = QButtonGroup(self)
         # Sinusoid Buttons
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig1) #0.25 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig2) #0.50 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig3) #0.75 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig4) #1.00 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig5) #1.25 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig6) #1.50 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig7) #1.75 Hz
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig8) #2.00 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig1) #0.2 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig2) #0.4 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig3) #0.6 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig4) #0.8 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig5) #1.0 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig6) #1.2 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig7) #1.4 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig8) #1.6 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig9) #1.8 Hz
+        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig10) #2.0 Hz
+
         # Other reference signal radiobutons
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_prbs) #PRBS
         self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_step) #Step
-        self.volreflexrefsigbtngroup.addButton(self.rbtn_refsig_other) #Other
 
         self.volreflexrefsigbtngroup.buttonClicked.connect(self.setReferenceSignal)
 
@@ -686,15 +695,7 @@ class MainWindow(QtWidgets.QMainWindow):
         global refsignaltype
         global refsignalfreq
         btntext = btn_volreflexreferencesignal.text()
-        if (btntext == "Other"):
-            self._volreflexreferencesignal = None
-            refsignaltype = 'other'
-            refsignalfreq = None
-        elif (btntext == "PRBS"):
-            refsignaltype = 'prbs'
-            refsignalfreq = None
-            self._volreflexreferencesignal = btntext
-        elif (btntext == "Step"):
+        if (btntext == "Step"):
             refsignaltype = 'step'
             refsignalfreq = None
             self._volreflexreferencesignal = btntext
@@ -783,6 +784,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.plt.setRange(xRange=(0,1), yRange=(bottomborder, topborder), padding=0.0)
         else:
             volreflexflexion = None
+
+        # Set upper and lower target lines
+        self.target_line.setData(x=np.array([0,1]),
+                                    y=np.array([refsignalmin, refsignalmin]))
+        self.target_line2.setData(x=np.array([0,1]),
+                                   y=np.array([refsignalmax, refsignalmax]))
+        self.plt.update()
         self.completeVoluntaryReflexFilename()
 
     def completeVoluntaryReflexFilename(self):
@@ -872,8 +880,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
         self.btn_resetserial.clicked.connect(self.resetSerial)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
-        self.btn_getmvcfiles.clicked.connect(self.getMvcFile)
-        self.btn_importmvcfiles.clicked.connect(self.importMvcFiles)
         self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
         self.btn_minimize.clicked.connect(self.minimizeWindow)
         self.btn_maximize.clicked.connect(self.maximizeWindow)

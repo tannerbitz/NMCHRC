@@ -708,6 +708,21 @@
                        </spacer>
                       </item>
                       <item>
+                       <widget class="QLabel" name="lbl_mvctriallivenotes">
+                        <property name="font">
+                         <font>
+                          <pointsize>24</pointsize>
+                         </font>
+                        </property>
+                        <property name="text">
+                         <string/>
+                        </property>
+                        <property name="alignment">
+                         <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                      <item>
                        <spacer name="verticalSpacer_3">
                         <property name="orientation">
                          <enum>Qt::Vertical</enum>
@@ -719,16 +734,6 @@
                          </size>
                         </property>
                        </spacer>
-                      </item>
-                      <item>
-                       <widget class="QLabel" name="lbl_mvctriallivenotes">
-                        <property name="text">
-                         <string/>
-                        </property>
-                        <property name="alignment">
-                         <set>Qt::AlignCenter</set>
-                        </property>
-                       </widget>
                       </item>
                       <item>
                        <widget class="QGroupBox" name="groupBox_23">
@@ -766,85 +771,6 @@
                             </widget>
                            </item>
                           </layout>
-                         </item>
-                        </layout>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QGroupBox" name="groupBox_21">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                          <horstretch>0</horstretch>
-                          <verstretch>1</verstretch>
-                         </sizepolicy>
-                        </property>
-                        <property name="title">
-                         <string>Import MVC Files</string>
-                        </property>
-                        <layout class="QVBoxLayout" name="verticalLayout_26">
-                         <item>
-                          <layout class="QHBoxLayout" name="horizontalLayout_35">
-                           <item>
-                            <widget class="QLineEdit" name="lineedit_mvcmanual">
-                             <property name="sizePolicy">
-                              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                               <horstretch>1</horstretch>
-                               <verstretch>0</verstretch>
-                              </sizepolicy>
-                             </property>
-                             <property name="text">
-                              <string>Select MVC File</string>
-                             </property>
-                             <property name="readOnly">
-                              <bool>true</bool>
-                             </property>
-                             <property name="placeholderText">
-                              <string>Enter MVC Value in N-m</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item>
-                            <widget class="QPushButton" name="btn_getmvcfiles">
-                             <property name="sizePolicy">
-                              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                               <horstretch>0</horstretch>
-                               <verstretch>0</verstretch>
-                              </sizepolicy>
-                             </property>
-                             <property name="minimumSize">
-                              <size>
-                               <width>0</width>
-                               <height>0</height>
-                              </size>
-                             </property>
-                             <property name="maximumSize">
-                              <size>
-                               <width>50</width>
-                               <height>16777215</height>
-                              </size>
-                             </property>
-                             <property name="text">
-                              <string>...</string>
-                             </property>
-                            </widget>
-                           </item>
-                          </layout>
-                         </item>
-                         <item>
-                          <widget class="QPushButton" name="btn_importmvcfiles">
-                           <property name="sizePolicy">
-                            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                             <horstretch>0</horstretch>
-                             <verstretch>0</verstretch>
-                            </sizepolicy>
-                           </property>
-                           <property name="layoutDirection">
-                            <enum>Qt::LeftToRight</enum>
-                           </property>
-                           <property name="text">
-                            <string>Import</string>
-                           </property>
-                          </widget>
                          </item>
                         </layout>
                        </widget>
@@ -1093,7 +1019,7 @@
                       <item>
                        <widget class="QGroupBox" name="groupBox">
                         <property name="title">
-                         <string>Reference Signal (Optional)</string>
+                         <string>Reference Signal</string>
                         </property>
                         <layout class="QHBoxLayout" name="horizontalLayout_6">
                          <item>
@@ -1108,75 +1034,78 @@
                             <string>Sinusoid</string>
                            </property>
                            <layout class="QGridLayout" name="gridLayout_3">
+                            <item row="3" column="2">
+                             <widget class="QRadioButton" name="rbtn_refsig9">
+                              <property name="font">
+                               <font>
+                                <pointsize>8</pointsize>
+                               </font>
+                              </property>
+                              <property name="text">
+                               <string>1.80 Hz</string>
+                              </property>
+                             </widget>
+                            </item>
                             <item row="1" column="0">
                              <widget class="QRadioButton" name="rbtn_refsig1">
                               <property name="text">
-                               <string>0.25 Hz</string>
+                               <string>0.20 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="2" column="0">
                              <widget class="QRadioButton" name="rbtn_refsig2">
                               <property name="text">
-                               <string>0.50 Hz</string>
+                               <string>0.40 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="3" column="0">
                              <widget class="QRadioButton" name="rbtn_refsig3">
                               <property name="text">
-                               <string>0.75 Hz</string>
+                               <string>0.60 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="1" column="1">
                              <widget class="QRadioButton" name="rbtn_refsig4">
                               <property name="text">
-                               <string>1.00 Hz</string>
+                               <string>0.80 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="2" column="1">
                              <widget class="QRadioButton" name="rbtn_refsig5">
                               <property name="text">
-                               <string>1.25 Hz</string>
+                               <string>1.00 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="3" column="1">
                              <widget class="QRadioButton" name="rbtn_refsig6">
                               <property name="text">
-                               <string>1.50 Hz</string>
+                               <string>1.20 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="1" column="2">
                              <widget class="QRadioButton" name="rbtn_refsig7">
                               <property name="text">
-                               <string>1.75 Hz</string>
+                               <string>1.40 Hz</string>
                               </property>
                              </widget>
                             </item>
                             <item row="2" column="2">
                              <widget class="QRadioButton" name="rbtn_refsig8">
                               <property name="text">
-                               <string>2.00 Hz</string>
+                               <string>1.60 Hz</string>
                               </property>
                              </widget>
                             </item>
-                           </layout>
-                          </widget>
-                         </item>
-                         <item>
-                          <widget class="QGroupBox" name="groupBox_17">
-                           <property name="title">
-                            <string>PRBS</string>
-                           </property>
-                           <layout class="QVBoxLayout" name="verticalLayout_22">
-                            <item>
-                             <widget class="QRadioButton" name="rbtn_refsig_prbs">
+                            <item row="1" column="3">
+                             <widget class="QRadioButton" name="rbtn_refsig10">
                               <property name="text">
-                               <string>PRBS</string>
+                               <string>2.00 Hz</string>
                               </property>
                              </widget>
                             </item>
@@ -1193,13 +1122,6 @@
                              <widget class="QRadioButton" name="rbtn_refsig_step">
                               <property name="text">
                                <string>Step</string>
-                              </property>
-                             </widget>
-                            </item>
-                            <item>
-                             <widget class="QRadioButton" name="rbtn_refsig_other">
-                              <property name="text">
-                               <string>Other</string>
                               </property>
                              </widget>
                             </item>
@@ -1304,6 +1226,11 @@
                       </item>
                       <item>
                        <widget class="QLabel" name="lbl_volreflexlivenotes">
+                        <property name="font">
+                         <font>
+                          <pointsize>24</pointsize>
+                         </font>
+                        </property>
                         <property name="text">
                          <string/>
                         </property>

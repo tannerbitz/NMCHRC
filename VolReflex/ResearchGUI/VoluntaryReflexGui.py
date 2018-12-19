@@ -49,7 +49,10 @@ refsignaltype = None
 refsignalfreq = None
 serialvals = None
 calibrationReferenceMeasurements = []
-
+refrawmax = None
+refrawmin = None
+refrawspan = None
+calibrationCompleteFlag = False
 
 def getSerialResponse():
     global ser
@@ -123,31 +126,7 @@ class VolReflexTrialThread(QThread):
         starttime = time.time()
         self.printToVolReflexLabel.emit("Match the Reference Line")
 
-
-        if (refsignaltype in ['prbs']):   #PRBS input
-            trialduration = 60
-            endtime = starttime + trialduration
-            while (time.time() < endtime):
-                [referenceval, measuredval] = self.getMeasRefSignals()
-                measuredvalqueue.popleft()
-                measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
-                measuredval = np.mean(measuredvalqueue)
-                referenceval = int(serialvals[referencesignalchannel])
-                if (measuredval < bottomborder):
-                    measuredval = bottomborder
-                elif (measuredval > topborder):
-                    measuredval = topborder
-
-                if (referenceval > 2048):   #high input
-                    referenceval = maxreferenceval
-                else:                       #low input
-                    referenceval = minreferenceval
-
-                progressbarval = round(100*(time.time() - starttime)/trialduration)
-                referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
-                self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
-
-        elif (refsignaltype in ['sine', 'step']):
+        if (refsignaltype in ['sine', 'step']):
             numcycles = 6
             if refsignaltype == "step":
                 steptime = 3.0
@@ -205,9 +184,9 @@ class VolReflexTrialThread(QThread):
                     progressbarval = round((icycle + 1)/numcycles*100)
                     if refsignaltype == "sine":
                         if volreflexflexion in ["DF", "DFPF"]:
-                            referenceval = minreferenceval + (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                            referenceval = minreferenceval + ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
                         elif volreflexflexion == "PF":
-                            referenceval = maxreferenceval - (referenceval/4095)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                            referenceval = maxreferenceval - ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
                     elif refsignaltype == "step":
                         if volreflexflexion ==  "DF":
                             if referenceval < 2048:
@@ -434,21 +413,25 @@ class MainWindow(QtWidgets.QMainWindow):
         secondflexend = secondrestend + 5
         thirdrestend = secondflexend + 15
         thirdflexend = thirdrestend + 5
+        if (self._mvctrialflexion == "DF"):
+            flexstr = "Pull"
+        elif (self._mvctrialflexion == "PF"):
+            flexstr = "Push"
         if (self._mvctrialcounter < firstrestend):
             ser.write(b'<6,6,0>')
-            self.lbl_mvctriallivenotes.setText("Flex in {}".format(firstrestend-self._mvctrialcounter))
+            self.lbl_mvctriallivenotes.setText("{} in {}".format(flexstr, firstrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
             ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
             ser.write(b'<6,6,0>')
-            self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(secondrestend-self._mvctrialcounter))
+            self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, secondrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
             ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondflexend and self._mvctrialcounter < thirdrestend):
             ser.write(b'<6,6,0>')
-            self.lbl_mvctriallivenotes.setText("Rest.  Flex in {}".format(thirdrestend-self._mvctrialcounter))
+            self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, thirdrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= thirdrestend and self._mvctrialcounter < thirdflexend):
             ser.write(b'<6,6,1>')
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(thirdflexend - self._mvctrialcounter))
@@ -817,8 +800,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def calibraterefsignal(self):
         global ser
         # Exit routine if settings aren't complete
-        if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
-            self.lbl_volreflexlivenotes.setText("Complete Settings")
+        if (referencesignalchannel is None):
+            self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
             return
 
         # Check if serial is connected
@@ -845,6 +828,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_mvctriallivenotes.setText(serialstring)
             return
 
+        # Ensure channels reading correct voltage Ranges
+        voltagerangecommand_referencesignal = "<5,{},0>".format(referencesignalchannel) # assumes 0-5V readings
+        ser.write(str.encode(voltagerangecommand_referencesignal))
+
+        self.lbl_volreflexlivenotes.setText("Calibrating...")
 
         #Trigger Calibration Signal from Ref Signal Generator
         calibrationurl = "http://" + ip_add + "/Calibrate"
@@ -859,25 +847,38 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def completeCalibration(self):
         global calibrationReferenceMeasurements
+        global measuredsignalchannel
+        global referencesignalchannel
+        global serialvals
+        global refrawmax
+        global refrawmin
+        global refrawspan
+        global calibrationCompleteFlag
         self._calibrationtimercounter += 1
         if (self._calibrationtimercounter < 500):
-            [refval, measval] = getMeasRefSignals()
-            calibrationReferenceMeasurements.append(refval)
+            ser.write(b'<2>')
+            serialstring = getSerialResponse()
+            serialvals = serialstring.split(',')
+            referenceval = int(serialvals[referencesignalchannel])
+            calibrationReferenceMeasurements.append(referenceval)
         else:
-            refmin = min(calibrationReferenceMeasurements)
-            refmax = max(calibrationReferenceMeasurements)
-            refspan = refmax - refmin
-            self.lbl_calmin.setText(str(refmin))
-            self.lbl_calmax.setText(str(refmax))
-            self.lbl_calspan.setText(str(refspan))
+            self._calibrationtimer.stop()
+            self._calibrationtimer.deleteLater()
+            refrawmin = min(calibrationReferenceMeasurements)
+            refrawmax = max(calibrationReferenceMeasurements)
+            refrawspan = refrawmax - refrawmin
+            calibrationCompleteFlag = True
+            self.lbl_calmin.setText(str(refrawmin))
+            self.lbl_calmax.setText(str(refrawmax))
+            self.lbl_calspan.setText(str(refrawspan))
             self.lbl_volreflexlivenotes.setText("Calibration Complete")
-            self._calibrationtimercounter.stop()
-            self._calibrationtimercounter.deleteLater()
+
 
     def startVoluntaryReflexTrail(self):
         global ser
         global measuredsignalchannel
         global referencesignalchannel
+        global calibrationCompleteFlag
         #Check Settings
         if (self._volreflextrialthread.isRunning()):
             self.lbl_volreflexlivenotes.setText("Thread Is Already Running")
@@ -898,6 +899,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if (volreflexflexion is None):
             self.lbl_volreflexlivenotes.setText("Set Flexion")
             return
+        if (calibrationCompleteFlag == False):
+            self.lbl_volreflexlivenotes.setText("Complete Calibration")
 
         # Ensure channels reading correct voltage Ranges
         voltagerangecommand_measuredsignal = "<5,{},1>".format(measuredsignalchannel)   # assuems -5V to +5V readings

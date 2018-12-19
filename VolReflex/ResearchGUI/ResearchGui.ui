@@ -1252,6 +1252,101 @@
                         </property>
                        </spacer>
                       </item>
+                      <item>
+                       <widget class="QGroupBox" name="groupBox_7">
+                        <property name="minimumSize">
+                         <size>
+                          <width>0</width>
+                          <height>50</height>
+                         </size>
+                        </property>
+                        <property name="title">
+                         <string>Calibrate Ref Signal</string>
+                        </property>
+                        <layout class="QHBoxLayout" name="horizontalLayout_15">
+                         <item>
+                          <layout class="QHBoxLayout" name="horizontalLayout_7">
+                           <item>
+                            <widget class="QPushButton" name="btn_calibrate">
+                             <property name="text">
+                              <string>Calibrate</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="label_8">
+                             <property name="font">
+                              <font>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="text">
+                              <string>Min:</string>
+                             </property>
+                             <property name="alignment">
+                              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="lbl_calmin">
+                             <property name="text">
+                              <string/>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="label_9">
+                             <property name="font">
+                              <font>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="text">
+                              <string>Max:</string>
+                             </property>
+                             <property name="alignment">
+                              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="lbl_calmax">
+                             <property name="text">
+                              <string/>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="label_5">
+                             <property name="font">
+                              <font>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="text">
+                              <string>Span:</string>
+                             </property>
+                             <property name="alignment">
+                              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QLabel" name="lbl_calspan">
+                             <property name="text">
+                              <string/>
+                             </property>
+                            </widget>
+                           </item>
+                          </layout>
+                         </item>
+                        </layout>
+                       </widget>
+                      </item>
                      </layout>
                     </item>
                    </layout>

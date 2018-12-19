@@ -623,6 +623,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plt.addItem(self.measured_line)
         self.plt.addItem(self.zero_line)
         self.plt.addItem(self.target_line)
+        self.plt.addItem(self.target_line2)
 
         # Redo Ankle Position Radiobutton text
         self.rbtn_volreflex5pf.setText(u' 5\N{DEGREE SIGN} PF')

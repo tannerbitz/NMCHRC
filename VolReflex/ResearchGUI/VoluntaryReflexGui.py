@@ -48,6 +48,9 @@ volreflexflexion = None
 refsignaltype = None
 refsignalfreq = None
 serialvals = None
+calibrationReferenceMeasurements = []
+
+
 def getSerialResponse():
     global ser
     endtime = time.time() + 0.5
@@ -810,6 +813,66 @@ class MainWindow(QtWidgets.QMainWindow):
         self._volreflexfilename = self._volreflexfilename + ".txt"
         self.lbl_volreflexfilename.setText(self._volreflexfilename)
 
+    def calibraterefsignal(self):
+        global ser
+        # Exit routine if settings aren't complete
+        if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
+            self.lbl_volreflexlivenotes.setText("Complete Settings")
+            return
+
+        # Check if serial is connected
+        if ser is None:
+            self.lbl_volreflexlivenotes.setText("Connect Serial")
+            return
+        elif isinstance(ser, serial.Serial):
+            ser.flushInput()
+            ser.write(b'<8>')
+            serialstring = getSerialResponse()
+            # Check if sd card is inserted
+            if (serialstring == "False"):
+                self.lbl_volreflexlivenotes.setText("Insert SD Card")
+                return
+            elif (serialstring == ""):
+                self.lbl_volreflexlivenotes.setText("No SD Card Response")
+                return
+        else:
+            self.lbl_volreflexlivenotes.setText("Something has gone very badly...")
+            return
+
+        serialstring = getSerialResponse()
+        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
+            self.lbl_mvctriallivenotes.setText(serialstring)
+            return
+
+
+        #Trigger Calibration Signal from Ref Signal Generator
+        calibrationurl = "http://" + ip_add + "/Calibrate"
+        requests.get(calibrationurl)
+
+        global calibrationReferenceMeasurements
+        calibrationReferenceMeasurements = []
+        self._calibrationtimercounter = 0
+        self._calibrationtimer = QtCore.QTimer()
+        self._calibrationtimer.timeout.connect(self.completeCalibration)
+        self._calibrationtimer.start(2)
+
+    def completeCalibration(self):
+        global calibrationReferenceMeasurements
+        self._calibrationtimercounter += 1
+        if (self._calibrationtimercounter < 500):
+            [refval, measval] = getMeasRefSignals()
+            calibrationReferenceMeasurements.append(refval)
+        else:
+            refmin = min(calibrationReferenceMeasurements)
+            refmax = max(calibrationReferenceMeasurements)
+            refspan = refmax - refmin
+            self.lbl_calmin.setText(str(refmin))
+            self.lbl_calmax.setText(str(refmax))
+            self.lbl_calspan.setText(str(refspan))
+            self.lbl_volreflexlivenotes.setText("Calibration Complete")
+            self._calibrationtimercounter.stop()
+            self._calibrationtimercounter.deleteLater()
+
     def startVoluntaryReflexTrail(self):
         global ser
         global measuredsignalchannel
@@ -885,7 +948,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_maximize.clicked.connect(self.maximizeWindow)
         self.btn_close.clicked.connect(self.closeWindow)
         self.btn_setmvcmanual.clicked.connect(self.setmvcmanual)
-
+        self.btn_calibrate.clicked.connect(self.calibraterefsignal)
 
     def setmvcmanual(self):
         mvctable['df'] = float(self.lineedit_dfmvcman.text())

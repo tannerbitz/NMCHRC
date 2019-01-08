@@ -62,6 +62,22 @@ void StepSignal(){
   }
 }
 
+void CalibrationSignal(){
+  count++;
+
+  if (count < 500){
+    volt_write = 0;
+  }
+  else if (count >=500 && count < 1000){
+    volt_write = 4095;
+  }
+  else{
+    timer.detach();
+    count = 0;
+    dacwriteflag = false;
+  }
+}
+
 void ChangeStepTime(){
   String step_t_length_str = server.arg("T");
   step_t_length = step_t_length_str.toFloat();
@@ -103,6 +119,17 @@ void NewCycleStep()
   server.send(200, "");
 }
 
+
+
+
+void Calibrate()
+{
+  count = 0;
+  timer.attach_ms(1, CalibrationSignal);
+  dacwriteflag = true;
+  server.send(200, "");
+}
+
 void setup(){
 
   Wire.begin();
@@ -124,6 +151,7 @@ void setup(){
   server.on("/NewCycleMulti", NewCycleMulti);
   server.on("/NewCycleStep", NewCycleStep);
   server.on("/ChangeStepTime", ChangeStepTime);
+  server.on("/Calibrate", Calibrate);
   server.begin();
 
 }

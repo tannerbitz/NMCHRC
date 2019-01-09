@@ -54,6 +54,22 @@ refrawmin = None
 refrawspan = None
 calibrationCompleteFlag = False
 
+# Populate dictionary for automatic trials
+autotrial_dict = {}
+for i in range(1, 11):
+    autotrial_dict[i] = ["PF", i*0.2]
+    autotrial_dict[i+10] = ["DF", i*0.2]
+
+# Automatic trial sequences
+trial_seq = np.array([[ 19,	3 ,	16,	14,	11,	6 ,	7 ,	12,	18,	20,	5 ,	4 ,	13,	17,	15,	1 ,	2 ,	9 ,	10,	8 ],
+                      [ 7 ,	15,	14,	5 ,	6 ,	19,	13,	11,	16,	2 ,	17,	18,	12,	9 , 20,	1 ,	10,	4 ,	3 ,	8 ],
+                      [ 7 ,	10,	5 ,	18,	16,	3 ,	11,	12,	6 ,	19,	4 ,	1 ,	20,	15,	9 ,	13,	14,	17,	8 ,	2 ],
+                      [ 14,	13,	12,	10,	5 ,	20,	3 ,	8 ,	6 ,	16,	18,	19,	9 ,	11,	17,	1 ,	4 ,	2 ,	7 ,	15],
+                      [ 18,	10,	5 ,	19,	13,	1 ,	8 ,	17,	16,	15,	12,	11,	6 ,	9 ,	7 ,	2 ,	3 ,	14,	20,	4 ],
+                      [ 8 ,	12,	20,	11,	19,	7 ,	3 ,	5 ,	1 ,	15,	10,	18,	2 ,	14,	13,	17,	9 ,	6 ,	4 ,	16]])
+
+
+
 def getSerialResponse():
     global ser
     endtime = time.time() + 0.5
@@ -254,6 +270,15 @@ class MainWindow(QtWidgets.QMainWindow):
     _volreflexreferencesignal = None
     _volreflextrialnumber = None
 
+    # Auto Trial Numbers
+    _autotrialround = 1
+    _autotrialnumber = 1
+    _autotrialcounter = 0
+    _autotrialcountermin = 0
+    _autotrialcountermax = 119
+    _trialsperround = 20
+    _autotrialflexion = None
+    _autotrialsinefreq = None
 
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -660,6 +685,100 @@ class MainWindow(QtWidgets.QMainWindow):
         # Connect Trial Spinbox
         self.spinboxtrialnumber.valueChanged.connect(self.setVoluntaryReflexTrialNumber)
 
+        # Trial Settings Button Group
+        self.trialsettingsbtngroup = QButtonGroup(self)
+        self.trialsettingsbtngroup.addButton(self.rbtn_autotrial)
+        self.trialsettingsbtngroup.addButton(self.rbtn_manualtrial)
+        self.trialsettingsbtngroup.buttonClicked.connect(self.setTrialSettingsMode)
+        self.setAutoTrial()
+
+    def setAutoTrialFlexFreq(self):
+        trial_number = trial_seq[self._autotrialround-1][self._autotrialnumber-1]
+        trial_list = autotrial_dict[trial_number]
+        self._autotrialflexion = trial_list[0]
+        self._autotrialsinefreq =  trial_list[1]
+
+    def setAutoTrial(self):
+        self.setAutoTrialFlexFreq()
+        self.setAutoTrialLabels()
+
+    def setTrialSettingsMode(self, btn_chosen):
+        btntext = btn_chosen.objectName()
+        if btntext == "rbtn_autotrial":
+            self.enableAutoTrialSettings()
+            self.disableManualTrialSettings()
+        elif btntext == "rbtn_manualtrial":
+            self.disableAutoTrialSettings()
+            self.enableManualTrialSettings()
+
+    def getAutoWidgetList(self):
+        return [self.label_11,
+               self.label_7,
+               self.label_round,
+               self.label_trial,
+               self.label_trialname,
+               self.btn_nexttrial,
+               self.btn_prevtrial,
+               self.groupbox_autotrial]
+
+    def getManualWidgetList(self):
+        return [self.rbtn_volreflex0,
+                self.rbtn_volreflex10df,
+                self.rbtn_volreflex10pf,
+                self.rbtn_volreflex15pf,
+                self.rbtn_volreflex20pf,
+                self.rbtn_volreflex5df,
+                self.rbtn_volreflex5pf,
+                self.rbtn_volreflexdf,
+                self.rbtn_volreflexpf,
+                self.rbtn_volreflexdfpf,
+                self.rbtn_refsig1,
+                self.rbtn_refsig2,
+                self.rbtn_refsig3,
+                self.rbtn_refsig4,
+                self.rbtn_refsig5,
+                self.rbtn_refsig6,
+                self.rbtn_refsig7,
+                self.rbtn_refsig8,
+                self.rbtn_refsig9,
+                self.rbtn_refsig10,
+                self.spinboxtrialnumber,
+                self.label,
+                self.lbl_trialflexionmvc,
+                self.rbtn_refsig_step,
+                self.groupbox_manualtrial,
+                self.groupbox_refsignal,
+                self.groupbox_ankleposition,
+                self.groupbox_volreflexflexion,
+                self.groupbox_refsignal,
+                self.groupbox_sinusoid,
+                self.groupbox_other,
+                self.groupbox_trialnumber]
+
+    def enableAutoTrialSettings(self):
+        widgetlist_auto = self.getAutoWidgetList()
+
+        for item in widgetlist_auto:
+            item.setEnabled(True)
+
+    def enableManualTrialSettings(self):
+        widgetlist_manual = self.getManualWidgetList()
+
+        for item in widgetlist_manual:
+            item.setEnabled(True)
+
+    def disableAutoTrialSettings(self):
+        widgetlist_auto = self.getAutoWidgetList()
+
+        for item in widgetlist_auto:
+            item.setEnabled(False)
+
+    def disableManualTrialSettings(self):
+        widgetlist_manual = self.getManualWidgetList()
+
+        for item in widgetlist_manual:
+            item.setEnabled(False)
+
     def minimizeWindow(self):
         self.showNormal()
         self.showMinimized()
@@ -729,11 +848,14 @@ class MainWindow(QtWidgets.QMainWindow):
         global mvctable
         global percentmvc
         global volreflexflexion
-        tempFlexion = btn_volreflexflexion.text()
-        if ( tempFlexion == "Plantarflexion" ):
+        tempFlexion = btn_volreflexflexion.text
+        refsignalmin = 0
+        refsignalmax = 0
+        if ( tempFlexion == "Plantarflexion"):
             volreflexflexion = "PF"
             if (mvctable['pf'] is None):
                 self.lbl_volreflexlivenotes.setText('Import PF MVC Trial Readings')
+                return
             else:
                 #Set Plot Ranges for Test
                 self.lbl_trialflexionmvc.setText(str(round(mvctable['pf'],2)))
@@ -747,6 +869,7 @@ class MainWindow(QtWidgets.QMainWindow):
             volreflexflexion = "DF"
             if (mvctable['df'] is None):
                 self.lbl_volreflexlivenotes.setText('Import DF MVC Trial Readings')
+                return
             else:
                 #Set Plot Ranges for Test
                 self.lbl_trialflexionmvc.setText(str(round(mvctable['df'],2)))
@@ -760,6 +883,7 @@ class MainWindow(QtWidgets.QMainWindow):
             volreflexflexion = "DFPF"
             if (mvctable['dfpf'] is None):
                 self.lbl_volreflexlivenotes.setText('Import DF and PF MVC Trial Readings')
+                return
             else:
                 avgmvc = mvctable['dfpf']
                 self.lbl_trialflexionmvc.setText(str(round(avgmvc, 2)))
@@ -953,6 +1077,88 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_close.clicked.connect(self.closeWindow)
         self.btn_setmvcmanual.clicked.connect(self.setmvcmanual)
         self.btn_calibrate.clicked.connect(self.calibraterefsignal)
+        self.btn_prevtrial.clicked.connect(self.setTrialPrev)
+        self.btn_nexttrial.clicked.connect(self.setTrialNext)
+
+
+    def setTrialPrev(self):
+        if self._autotrialcounter == self._autotrialcountermin:
+            return
+        else:
+            self._autotrialcounter = self._autotrialcounter - 1
+            self._autotrialround = int(self._autotrialcounter/self._trialsperround) + 1
+            self._autotrialnumber = self._autotrialcounter%self._trialsperround + 1
+
+            self.setAutoTrialLabels()
+            self.setAutoTrialManualButtons()
+
+    def setDefaultAutoTrial(self):
+        self.setAutoTrialFlexFreq()
+        self.setAutoTrialLabels()
+        self.rbtn_volreflex0.setChecked(True)
+        self.rbtn_volreflex0.click()
+        self.setAutoTrialManualButtons()
+        self.disableManualTrialSettings()
+
+    def setAutoTrialManualButtons(self):
+        self.enableAutoTrialSettings()
+        self.enableManualTrialSettings()
+
+        #Set flexion
+        if self._autotrialflexion == "DF":
+            flex_btn = self.rbtn_volreflexdf
+        elif self._autotrialflexion == "PF":
+            flex_btn = self.rbtn_volreflexpf
+        flex_btn.setChecked(True)
+        flex_btn.click()
+
+        #Set Sine Freq
+        tol = 1e-4
+        if (self._autotrialsinefreq - 0.20) < tol:
+            freq_btn = self.rbtn_refsig1
+        elif (self._autotrialsinefreq - 0.40) < tol:
+            freq_btn = self.rbtn_refsig2
+        elif (self._autotrialsinefreq - 0.60) < tol:
+            freq_btn = self.rbtn_refsig3
+        elif (self._autotrialsinefreq - 0.80) < tol:
+            freq_btn = self.rbtn_refsig4
+        elif (self._autotrialsinefreq - 1.00) < tol:
+            freq_btn = self.rbtn_refsig5
+        elif (self._autotrialsinefreq - 1.20) < tol:
+            freq_btn = self.rbtn_refsig6
+        elif (self._autotrialsinefreq - 1.40) < tol:
+            freq_btn = self.rbtn_refsig7
+        elif (self._autotrialsinefreq - 1.60) < tol:
+            freq_btn = self.rbtn_refsig8
+        elif (self._autotrialsinefreq - 1.80) < tol:
+            freq_btn = self.rbtn_refsig9
+        elif (self._autotrialsinefreq - 2.00) < tol:
+            freq_btn = self.rbtn_refsig10
+        freq_btn.setChecked(True)
+        freq_btn.click()
+
+        # Set Round Number
+        self.spinboxtrialnumber.setValue(self._autotrialround)
+
+        #Disable Manual buttons
+        self.disableManualTrialSettings()
+
+    def setAutoTrialLabels(self):
+            self.label_round.setText(str(self._autotrialround))
+            self.label_trial.setText(str(self._autotrialnumber))
+            self.setAutoTrialFlexFreq()
+            self.label_trialname.setText("{} --- {:.2f} Hz".format(self._autotrialflexion, self._autotrialsinefreq))
+
+    def setTrialNext(self):
+        if self._autotrialcounter == self._autotrialcountermax:
+            return
+        else:
+            self._autotrialcounter = self._autotrialcounter + 1
+            self._autotrialround = int(self._autotrialcounter/self._trialsperround) + 1
+            self._autotrialnumber = self._autotrialcounter%self._trialsperround + 1
+
+            self.setAutoTrialLabels()
+            self.setAutoTrialManualButtons()
 
     def setmvcmanual(self):
         mvctable['df'] = float(self.lineedit_dfmvcman.text())
@@ -974,6 +1180,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Connect buttons
         self.connectButtonsInSetupTab()
+
+        # Set Auto Trial Buttons as default
+        self.setDefaultAutoTrial()
 
         #Init Voluntary Reflex Trial Thread
         self.initVoluntaryReflexTrialThread()

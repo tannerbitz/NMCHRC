@@ -848,7 +848,7 @@ class MainWindow(QtWidgets.QMainWindow):
         global mvctable
         global percentmvc
         global volreflexflexion
-        tempFlexion = btn_volreflexflexion.text
+        tempFlexion = btn_volreflexflexion.text()
         refsignalmin = 0
         refsignalmax = 0
         if ( tempFlexion == "Plantarflexion"):

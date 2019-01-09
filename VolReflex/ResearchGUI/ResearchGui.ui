@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>1610</width>
-    <height>826</height>
+    <height>872</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1413,6 +1413,11 @@
                </item>
                <item>
                 <widget class="QLabel" name="lbl_volreflexlivenotes">
+                 <property name="font">
+                  <font>
+                   <pointsize>24</pointsize>
+                  </font>
+                 </property>
                  <property name="text">
                   <string/>
                  </property>

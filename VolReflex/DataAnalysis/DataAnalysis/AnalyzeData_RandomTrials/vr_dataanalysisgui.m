@@ -206,6 +206,14 @@ if exist(mvcmatfile, 'file') == 0
     return
 end
 
+% Delete PatXXProcessedData.mat file if it exists
+PD_DIR = strrep(RD_DIR, 'RawData', 'ProcessedData');
+procDataMat = sprintf('Pat%sProcessedData.mat', patNum);
+procDataMat = fullfile(PD_DIR, procDataMat);
+if exist(procDataMat, 'file') ~= 0
+    delete(procDataMat);
+end
+
 % Get all files from folder, put in vrfiles list if it matches regular
 % expression
 rawfiles = ls(RD_DIR);

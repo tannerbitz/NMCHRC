@@ -46,6 +46,7 @@ for i = 1:length(rawfiles)
     end
 end
 
+warning('off')
 % Run analyzedata_randomtrials on all vrfiles
 for i = 1:length(vrfiles)
     fprintf('%i of %i\n', i, length(vrfiles));

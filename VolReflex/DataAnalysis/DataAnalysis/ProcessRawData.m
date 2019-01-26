@@ -1,5 +1,4 @@
 function res = ProcessRawData(varargin)
-    close all;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %          Parse Arguments         %
@@ -62,7 +61,12 @@ function res = ProcessRawData(varargin)
     end
     
     RD_DIR = mvcpath;               % Raw Data Folder Path
-    BASE_DIR = '/';                  % Build Base Folder Path
+    if ispc
+        BASE_DIR = '';
+    else
+        BASE_DIR = '/';                  % Build Base Folder Path
+    end
+    
     for i = 1:length(pathparts)-1
         BASE_DIR = fullfile(BASE_DIR, pathparts{i});
     end

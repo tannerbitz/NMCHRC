@@ -70,11 +70,15 @@ function res = PlotProcessedData(varargin)
             unfilterdatastruct(iFlex, iFreq).refdata = [];
             unfilterdatastruct(iFlex, iFreq).measdata = [];
             unfilterdatastruct(iFlex, iFreq).refdatamean = [];
-            unfilterdatastruct(iFlex, iFreq).refdata3std = [];
             unfilterdatastruct(iFlex, iFreq).measdatamean = [];
+            
+            unfilterdatastruct(iFlex, iFreq).refdata3std = [];
             unfilterdatastruct(iFlex, iFreq).measdata3std = [];
             unfilterdatastruct(iFlex, iFreq).measdataupperbound = [];
             unfilterdatastruct(iFlex, iFreq).measdatalowerbound = [];
+            
+            unfilterdatastruct(iFlex, iFreq).measmean_firstindover10 = [];
+            unfilterdatastruct(iFlex, iFreq).measmean_lastindover10 = [];
         end
     end
     
@@ -99,8 +103,20 @@ function res = PlotProcessedData(varargin)
             unfilterdatastruct(iFlex, iFreq).refdata3std = 3*std(unfilterdatastruct(iFlex, iFreq).refdata, 0, 1);
             unfilterdatastruct(iFlex, iFreq).measdatamean = mean(unfilterdatastruct(iFlex, iFreq).measdata, 1);
             unfilterdatastruct(iFlex, iFreq).measdata3std = 3*std(unfilterdatastruct(iFlex, iFreq).measdata, 0, 1);
-            unfilterdatastruct(iFlex, iFreq).measdataupperbound = unfilterdatastruct(iFlex, iFreq).measdatamean + unfilterdatastruct(iFlex, iFreq).measdata3std;
-            unfilterdatastruct(iFlex, iFreq).measdatalowerbound = unfilterdatastruct(iFlex, iFreq).measdatamean - unfilterdatastruct(iFlex, iFreq).measdata3std;
+    
+            % Determine region when trial data is 10% of max commanded
+            % value (which is 10 because data is normalized). This is the region we
+            % will be looking at when checking for std violations
+            gt10 = unfilterdatastruct(iFlex, iFreq).measdatamean > 10;
+            firstind = find(gt10, 1, 'first');
+            lastind = find(gt10, 1, 'last');
+            unfilterdatastruct(iFlex, iFreq).measmean_firstindover10 = firstind;
+            unfilterdatastruct(iFlex, iFreq).measmean_lastindover10 = lastind;
+            
+            upperbound = unfilterdatastruct(iFlex, iFreq).measdatamean + unfilterdatastruct(iFlex, iFreq).measdata3std;
+            lowerbound = unfilterdatastruct(iFlex, iFreq).measdatamean - unfilterdatastruct(iFlex, iFreq).measdata3std;
+            unfilterdatastruct(iFlex, iFreq).measdataupperbound = upperbound(firstind:lastind);
+            unfilterdatastruct(iFlex, iFreq).measdatalowerbound = lowerbound(firstind:lastind);
         end
     end
     
@@ -148,7 +164,7 @@ function res = PlotProcessedData(varargin)
         end
     end
     
-    
+    samplespersec = 1000;
     
     % Check bounds, sort, and plot.  
     
@@ -162,12 +178,18 @@ function res = PlotProcessedData(varargin)
             iFreq = find(freqlist == patfreq);
             for iCycle = 2:cyclespertrial
                 tempcycle = data{iPatient}.PatientData{iTrial}.cyclemeasdata_percentcommand(iCycle, :);
-                % Check for violation of lower/upper bounds
+                t = (1:1:length(tempcycle))/samplespersec;
+                % Check for violation of lower/upper bounds where mean trial
+                % measurement is above 10
                 upperbound = unfilterdatastruct(iFlex, iFreq).measdataupperbound;
                 lowerbound = unfilterdatastruct(iFlex, iFreq).measdatalowerbound;
                 
-                anyaboveupperbound = any( (tempcycle - upperbound) > 0 );
-                anybelowlowerbound = any( (tempcycle - lowerbound) < 0 );
+                firstind = unfilterdatastruct(iFlex, iFreq).measmean_firstindover10;
+                lastind = unfilterdatastruct(iFlex, iFreq).measmean_lastindover10;
+                tempcycle_area2test = tempcycle(firstind:lastind);
+                
+                anyaboveupperbound = any( (tempcycle_area2test - upperbound) > 0 );
+                anybelowlowerbound = any( (tempcycle_area2test - lowerbound) < 0 );
                 
                 % Plot if no violations of 3 std upper/lower bounds,
                 % continue to next for loop if violation occurs
@@ -185,11 +207,11 @@ function res = PlotProcessedData(varargin)
                     if strcmp(p.Results.PlotFilteredData, 'on')
                         hold on
                         if ~plotinfo(iFlex, iFreq).hasFilteredLine
-                            plot(tempcycle, 'color', 'g', 'LineWidth', 1);
+                            plot(t, tempcycle, 'color', 'g', 'LineWidth', 1);
                             plotinfo(iFlex, iFreq).hasFilteredLine = true;
                             legendstruct(iFlex, iFreq).legendstr{end+1} = 'Data With Violations';
                         else
-                            plot(tempcycle, 'color', 'g', 'LineWidth', 1, 'HandleVisibility', 'off');
+                            plot(t, tempcycle, 'color', 'g', 'LineWidth', 1, 'HandleVisibility', 'off');
                         end
                         hold off
                     end
@@ -205,11 +227,11 @@ function res = PlotProcessedData(varargin)
                     figure(iFig)
                     hold on
                     if ~plotinfo(iFlex, iFreq).hasLine
-                        plot(tempcycle, 'color', 'r', 'LineWidth', 1);
+                        plot(t, tempcycle, 'color', 'r', 'LineWidth', 1);
                         plotinfo(iFlex, iFreq).hasLine = true;
                         legendstruct(iFlex, iFreq).legendstr{end+1} = 'Data Without Violations';
                     else
-                        plot(tempcycle, 'color', 'r', 'LineWidth', 1, 'HandleVisibility', 'off');
+                        plot(t, tempcycle, 'color', 'r', 'LineWidth', 1, 'HandleVisibility', 'off');
                     end
                     hold off
                 end
@@ -225,6 +247,8 @@ function res = PlotProcessedData(varargin)
             filtereddatastruct(iFlex, iFreq).unviolated.measdata3std = 3*std(filtereddatastruct(iFlex, iFreq).unviolated.measdata, 0, 1);
             filtereddatastruct(iFlex, iFreq).unviolated.measdataupperbound = filtereddatastruct(iFlex, iFreq).unviolated.measdatamean + filtereddatastruct(iFlex, iFreq).unviolated.measdata3std;
             filtereddatastruct(iFlex, iFreq).unviolated.measdatalowerbound = filtereddatastruct(iFlex, iFreq).unviolated.measdatamean - filtereddatastruct(iFlex, iFreq).unviolated.measdata3std;
+            filtereddatastruct(iFlex, iFreq).unviolated.measdataupperbound1std = filtereddatastruct(iFlex, iFreq).unviolated.measdatamean + std(filtereddatastruct(iFlex, iFreq).unviolated.measdata, 0, 1);
+            filtereddatastruct(iFlex, iFreq).unviolated.measdatalowerbound1std = filtereddatastruct(iFlex, iFreq).unviolated.measdatamean - std(filtereddatastruct(iFlex, iFreq).unviolated.measdata, 0, 1);
         end
     end
     
@@ -236,19 +260,20 @@ function res = PlotProcessedData(varargin)
             figure(iFig)
             hold on
             lWidth = 2;
+            t = (1:1:length(unfilterdatastruct(iFlex, iFreq).refdatamean))/samplespersec;
             % Plot reference data, unviolated data mean, unviolated data
             % upper/lower bounds
-            plot(unfilterdatastruct(iFlex, iFreq).refdatamean, 'b', 'LineWidth', lWidth);
-            plot(filtereddatastruct(iFlex, iFreq).unviolated.measdataupperbound, '--k', 'LineWidth', lWidth);
-            plot(filtereddatastruct(iFlex, iFreq).unviolated.measdatalowerbound, '--k', 'LineWidth', lWidth, 'HandleVisibility', 'off');
-            plot(filtereddatastruct(iFlex, iFreq).unviolated.measdatamean, 'k', 'LineWidth', lWidth);
+            plot(t, unfilterdatastruct(iFlex, iFreq).refdatamean, 'b', 'LineWidth', lWidth);
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdataupperbound, '--k', 'LineWidth', lWidth);
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdatalowerbound, '--k', 'LineWidth', lWidth, 'HandleVisibility', 'off');
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdatamean, 'k', 'LineWidth', lWidth);
             % Fill legendstr
             legendstruct(iFlex, iFreq).legendstr{end+1} = 'Reference Signal';
             legendstruct(iFlex, iFreq).legendstr{end+1} = '+/- 3 std';
             legendstruct(iFlex, iFreq).legendstr{end+1} = 'Mean Measured Signal';
             % Complete Plot Markings
             legend(legendstruct(iFlex, iFreq).legendstr);
-            xlabelstr = sprintf(['Samples\n\n' ...
+            xlabelstr = sprintf(['Time (s)\n\n' ...
                                  '%i of %i Cycles Violated +/- 3 std'], ...
                                  plotinfo(iFlex, iFreq).filteredLines, ...
                                  plotinfo(iFlex, iFreq).totalLines);
@@ -256,5 +281,48 @@ function res = PlotProcessedData(varargin)
             hold off
         end
     end
+    
+    
+    
+    % Make summary plots    
+    for iFlex = 1:length(flexionlist)
+        if iFlex == 1
+            figure(21);
+        elseif iFlex == 2
+            figure(22);
+        end
+        for iFreq = 1:length(freqlist)
+            subplot(2, 5, iFreq)
+            hold on
+            [nCycles, nSamples] = size(filtereddatastruct(iFlex, iFreq).unviolated.measdata);
+            t = (1:1:nSamples)/samplespersec;
+            for iCycle = 1:nCycles
+                hold on
+                tempcycle = filtereddatastruct(iFlex, iFreq).unviolated.measdata(iCycle, :);
+                if iCycle == 1
+                    plot(t, tempcycle, 'color', 'r', 'LineWidth', 1);
+                else
+                    plot(t, tempcycle, 'color', 'r', 'LineWidth', 1, 'HandleVisibility', 'off');
+                end
+            end
+            plot(t, unfilterdatastruct(iFlex, iFreq).refdatamean, 'b', 'LineWidth', lWidth);
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdataupperbound1std, '--k', 'LineWidth', lWidth);
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdatalowerbound1std, '--k', 'LineWidth', lWidth, 'HandleVisibility', 'off');
+            plot(t, filtereddatastruct(iFlex, iFreq).unviolated.measdatamean, 'k', 'LineWidth', lWidth);
+            xlabel('Time (s)')
+            figtitle = sprintf('%s - %2.1fHz', flexionlist{iFlex}, freqlist(iFreq));
+            title(figtitle);
+            ylabel('Percent of 30% MVC')
+            legend({'Individual Cycle', 'Reference Signal', '+/- 1 std', 'Mean Measured Signal'}, 'Location', 'northwest');
+            legend boxoff
+            ylim([-50, 180])
+            hold off
+        end
+    end
+    
+    
+    
+    
+    
     
 end

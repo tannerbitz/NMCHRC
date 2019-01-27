@@ -105,7 +105,16 @@ matlistboxstr = get(handles.listbox1, 'string');
 
 [tempname, temppath] = uigetfile('*.mat', 'Choose Process Data MAT File', ...
                                   'MultiSelect', 'on');
-matlistboxstr{end+1} = fullfile(temppath, tempname);
+if ischar(tempname) %single matfile
+    matlistboxstr{end +1} = fullfile(temppath, tempname);
+elseif iscell(tempname)
+    for i = 1:length(tempname)
+        matlistboxstr{end+1} = fullfile(temppath, tempname{i});
+    end
+else
+    fprintf('Something went wrong with grabbing the Processed Data MAT File');
+end
+
 set(handles.listbox1, 'Value',1);
 set(handles.listbox1, 'string', matlistboxstr);
 

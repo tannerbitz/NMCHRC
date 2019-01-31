@@ -39,8 +39,8 @@ int freq = 1000;
 uint32_t intervalInMicroseconds = 1000000/freq;
 
 // Timestamp Data
-uint16_t fileYear; 
-uint8_t fileMonth; 
+uint16_t fileYear;
+uint8_t fileMonth;
 uint8_t fileDay;
 uint8_t fileHour;
 uint8_t fileMinute;
@@ -52,7 +52,7 @@ SdFatSdioEX sdEx;
 File file;
 
 // Pertinent File Writing Variables
-char * fname; 
+char * fname;
 bool writeTimestampFlag = false;
 int daqReadings[8] = {0, 0, 0, 0, 0, 0, 0,0};
 char daqReadingsStr[80];
@@ -199,9 +199,9 @@ void customizeI2CDeviceAddress(char * serLine){
 
 
 String getVoltageRangeStr(uint8_t voltageRange){
-  /* 
-   * Return human readable voltage range given the 
-   * voltage range integer/voltageRange enum 
+  /*
+   * Return human readable voltage range given the
+   * voltage range integer/voltageRange enum
    */
   String tempStr;
   switch (voltageRange) {
@@ -385,8 +385,8 @@ void startSdWrite(char * serLine){
    * - hour (optional)
    * - minute (optional)
    * - second (optional)
-   * 
-   * It then connects with the sd card, creates the file, and 
+   *
+   * It then connects with the sd card, creates the file, and
    * if it has the time information, then it also creates the timestamps
    */
   writeTimestampFlag = false;
@@ -512,13 +512,13 @@ void startSdWrite(char * serLine){
     return;
   }
   sdEx.chvol();
-  
+
   // Create/write to the file
   if (!file.open(fname, O_WRITE|O_CREAT|O_AT_END)){
     Serial.print("<Something went wrong opening the file>");
     return;
   }
-  
+
   // Change the 'Created' and 'Modified' and 'Accessed' timestamps of the file
   if (writeTimestampFlag){
     if (!file.timestamp(T_CREATE, fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond)){
@@ -538,7 +538,7 @@ void startSdWrite(char * serLine){
 
 void stopSdWrite(){
   // Stop Calling writeToSdCard and close file
-  myTimer.end(); 
+  myTimer.end();
   file.close();
 }
 
@@ -595,21 +595,21 @@ void setup() {
 
   //Initalize ControlByte array
   ResetDefaultI2CDevices();
-  
+
   // Begin Serial
   Serial.begin(115200);
 
   // Begin I2C (Wire) Library
   Wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, 400000);
   Wire.setDefaultTimeout(200000); // 200ms
-  
+
 }
 
 void loop() {
-  /* 
+  /*
    * Check for new serial input. Append character to serFullLine is there is
    * a new character. Always start a new serFullLine with a '<' character and
-   * end it with a '>' character. 
+   * end it with a '>' character.
    */
   if ( Serial.available() )
   {
@@ -651,7 +651,7 @@ void loop() {
       if (i2cDevs[chan].voltageRange == NEG_FIVE_TO_POS_FIVE || i2cDevs[chan].voltageRange == NEG_TEN_TO_POS_TEN){
         if (tempData > 2047){             // Convert to signed int
           tempData = tempData - 4096;
-        }  
+        }
       }
     }
     else{                               // Expected that a 16 bit integer is being sent

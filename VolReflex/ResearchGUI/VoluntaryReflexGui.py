@@ -82,6 +82,62 @@ def getSerialResponse():
     return serialstring.strip('<>')
 
 
+def resetSerial(self):
+    global ser
+    if (self._daqport is None):
+        self.lbl_daqportstatus.setText("Select COM Port")
+    elif ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
+        try:
+            ser.close()
+            ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
+            self.lbl_daqportstatus.setText("Connected")
+        except serial.SerialException as e:
+            self.lbl_daqportstatus.setText("Error Connecting")
+    elif ((self._daqport is not None) and (not isinstance(ser, serial.Serial))):
+        try:
+            ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
+            self.lbl_daqportstatus.setText("Connected")
+        except serial.SerialException as e:
+            self.lbl_daqportstatus.setText("Error Connecting")
+
+class SerialThread(QThread):
+    supplyDaqReadings = pyqtSignal(float, float, float, float, float, float, float, float, float)
+    supplyMessage = pyqtSignal(str)
+    _ser = None
+
+    def __init(self, serialPort, serialBaudrate, serialTimeout):
+        QThread.__init__(self)
+        try:
+            self._ser = serial.Serial(port=serialPort, baudrate=serialBaudrate, timeout=serialTimeout)
+            self.supplyMessage.emit("Serial Connected")
+        except serial.SerialException as e:
+            self.supplyMessage.emit("Serial Exception Occured")
+        except:
+            self.supplyMessage.emit("Something Bad Happened")
+
+
+    def getAndEmitSerialVals(self):
+        self._ser.write(b'<2>')
+        endtime = time.time() + 0.5
+        serialstring = ""
+        while (time.time() < endtime):
+            newchar = self._ser.read().decode()
+            serialstring += newchar
+            if (newchar == '>'):
+                break
+        serialstring = serialstring.strip('<>')
+        vals = serialstring.split(',')
+        if (len(vals) == 9):
+            self.supplyDaqReadings.emit(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7], vals[8])
+        else:
+            self.supplyMessage.emit("9 Serial Values Weren't Received")
+
+    def run(self):
+        self._serialTimer = QtCore.QTimer()
+        self._serialTimer.setInterval(1/60*1000)
+        self._serialTimer.timeout.connect(self._getAndEmitSerialVals)
+        self._serialTimer.start()
+
 class VolReflexTrialThread(QThread):
     supplyDaqReadings = pyqtSignal(float, float, float)
     printToVolReflexLabel = pyqtSignal(str)
@@ -352,6 +408,30 @@ class MainWindow(QtWidgets.QMainWindow):
             self._patientnumber = None
             self.lbl_patientnumber.setText("")
             self.lbl_patientnumbererror.setText("Patient Number Must Be An Integer")
+
+    def tempResetSerial(self):
+        if (self._daqport is None):
+            self.lbl_daqportstatus.setText("Select COM Port")
+        else:
+            self._serialThread = SerialThread(self._daqport, serialbaudrate, serialtimeout)
+            self._serialThread.supplyMessage.connect(printToDaqPortStatus)
+            self._serialThread.supplyDaqReadings.connect(printToTerminal)
+
+    def tempVrButtonMethod(self):
+        if (self._serialThread is not None):
+            endtime = time.time() + 5
+            self._serialThread.supplyDaqReadings.connect(printToTerminal)
+            while time.time() < endtime:
+                whatever = 0
+            self._serialThread.supplyDaqReadings.disconnect()
+        else:
+            print("serial not connected")
+
+    def printToTerminal(self, val0, val1, val2, val3, val4, val5, val6, val7, val8):
+        print("{}, {}, {}, {}, {}, {}, {}, {}, {}".format(val0, val1, val2, val3, val4, val5, val6, val7, val8))
+
+    def printToDaqPortStatus(self, inStr):
+        self.lbl_daqportstatus.setText(inStr)
 
     def resetSerial(self):
         global ser
@@ -927,7 +1007,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if (referencesignalchannel is None):
             self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
             return
-
         # Check if serial is connected
         if ser is None:
             self.lbl_volreflexlivenotes.setText("Connect Serial")
@@ -1069,9 +1148,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_selectreferencesignal.clicked.connect(self.selectReferenceSignalChannel)
         self.btn_selectmeasuredsignal.clicked.connect(self.selectMeasuredSignalChannel)
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
-        self.btn_resetserial.clicked.connect(self.resetSerial)
+        # self.btn_resetserial.clicked.connect(self.resetSerial)
+        self.btn_resetserial.clicked.connect(self.tempResetSerial)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
-        self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
+        # self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
+        self.btn_startvolreflextrial.clicked.connect(self.tempVrButtonMethod)
         self.btn_minimize.clicked.connect(self.minimizeWindow)
         self.btn_maximize.clicked.connect(self.maximizeWindow)
         self.btn_close.clicked.connect(self.closeWindow)

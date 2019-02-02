@@ -122,15 +122,15 @@ class SerialThread(QThread):
         self._serialTimer.stop()
 
         # Close serial connection if it's connected
-        if isinstance(ser, serial.Serial):
+        if isinstance(self._ser, serial.Serial):
             try:
-                ser.close()
+                self._ser.close()
             except:
                 self.supplyMessage.emit("Closing Serial Caused an Error")
 
         # Reconnect serial
         try:
-            ser = serial.Serial(port=serialPort, baudrate=serialbaudrate, timeout=serialtimeout)
+            self._ser = serial.Serial(port=serialPort, baudrate=serialbaudrate, timeout=serialtimeout)
             self.supplyMessage.emit("Connected")
             self._serIsRunning = True
         except serial.SerialException as e:
@@ -362,6 +362,9 @@ class MainWindow(QtWidgets.QMainWindow):
     _trialsperround = 20
     _autotrialflexion = None
     _autotrialsinefreq = None
+
+    # Serial
+    _serialThread = None
 
     def __init__(self):
         super(MainWindow, self).__init__()

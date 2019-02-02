@@ -2,10 +2,10 @@
 
 import sys
 from PyQt5.QtWidgets import *
-from PyQt5 import QtCore, QtGui, QtWidgets, uic
+from PyQt5 import QtCore, QtGui, QtWidgets, uic, QtTest
 from PyQt5.QtCore import QThread, pyqtSignal
 import serial.tools.list_ports
-from PyQt5.QtTest.QTest import qWait
+from PyQt5 import QtTest
 import pyqtgraph as pg
 import numpy as np
 import serial
@@ -14,7 +14,7 @@ import time
 from collections import deque
 import random
 import requests
-import ReferenceSignalGeneratorAPI.py as refSigGen
+import ReferenceSignalGeneratorAPI as refSigGen
 
 def getComPorts():
     tempPorts = []
@@ -911,6 +911,10 @@ class MainWindow(QtWidgets.QMainWindow):
         voltceil_low = 3071
         voltceil_high = 4095
 
+        # Make DAQ of reference signal channel measure 0-5V
+        self._serialThread.changeVoltageRange(referencesignalchannel,
+                                              self._serialThread._voltRanges['ZERO_TO_FIVE'])
+
         # Set Teensy Volt Floor = 0, Volt Ceil = 4095
         self._calFloorSamples = []
         self._calCeilSamples = []
@@ -919,13 +923,13 @@ class MainWindow(QtWidgets.QMainWindow):
         refSigGen.ChangeVoltWriteCeil(4095)
         refSigGen.GenerateCalibrationSignal()
 
-        qWait(125) #From 125ms - 375ms collect floor samples
+        QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples)
-        qWait(250)
+        QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect()
-        qWait(250) #From 625ms - 875ms collect ceil samples
+        QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples)
-        qWait(250)
+        QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect()
 
         print("Floor Samples")
@@ -986,10 +990,6 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self._volreflextrialthread.start()
 
-    def initVoluntaryReflexTrialThread(self):
-        self._volreflextrialthread = VolReflexTrialThread()
-        self._volreflextrialthread.printToVolReflexLabel.connect(self.printToVolReflexLabel)
-        self._volreflextrialthread.supplyDaqReadings.connect(self.updateVolReflexPlot)
 
     def updateVolReflexPlot(self, measuredval, referenceval, progressbarval):
         #Update Progressbar
@@ -1129,8 +1129,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set Auto Trial Buttons as default
         self.setDefaultAutoTrial()
 
-        #Init Voluntary Reflex Trial Thread
-        self.initVoluntaryReflexTrialThread()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

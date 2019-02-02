@@ -621,41 +621,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def startMvcTrial(self):
-        global ser
         # Exit routine if settings aren't complete
         if (self.lbl_mvcmeasurementfilename.text() == "Complete Settings"):
             self.lbl_mvctriallivenotes.setText("Complete Settings")
             return
 
-        # Check if serial is connected
-        if ser is None:
+        # Check if serial is connected and SD Card is inserted
+        if (self._serialThread._serIsRunning == False):
             self.lbl_mvctriallivenotes.setText("Connect Serial Before Proceeding")
             return
-        elif isinstance(ser, serial.Serial):
-            ser.flushInput()
-            ser.write(b'<8>')
-            serialstring = getSerialResponse()
-            # Check if sd card is inserted
-            if (serialstring == "False"):
-                self.lbl_mvctriallivenotes.setText("Insert SD Card")
-                return
-            elif (serialstring == ""):
-                self.lbl_mvctriallivenotes.setText("No SD Card Response")
-                return
-        else:
-            self.lbl_mvctriallivenotes.setText("Something has gone very badly...")
-            return
+
+        if (self._serialThread.isSDCardInserted() == False):
+            self.lbl_mvctriallivenotes.setText("Insert SD Card")
 
         # Start Writing Process
-        ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
-        n = datetime.datetime.now()
-        startStr = "<0,{},{},{},{},{},{},{}>".format(self._mvctrialfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
-        bStartStr = str.encode(startStr)
-        ser.write(bStartStr)
-        serialstring = getSerialResponse()
-        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
-            self.lbl_mvctriallivenotes.setText(serialstring)
-            return
+        self._serialThread.startSdWrite(self._mvctrialfilename)
 
         self._mvctrialcounter = 0
         self._mvctrialrepetition = 0
@@ -675,25 +655,25 @@ class MainWindow(QtWidgets.QMainWindow):
         elif (self._mvctrialflexion == "PF"):
             flexstr = "Push"
         if (self._mvctrialcounter < firstrestend):
-            ser.write(b'<6,6,0>')
+            self._serialThread.insertValIntoDaqReadings(6, 0) #insert 0 into 6th channel
             self.lbl_mvctriallivenotes.setText("{} in {}".format(flexstr, firstrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
-            ser.write(b'<6,6,1>')
+            self._serialThread.insertValIntoDaqReadings(6, 1) #insert 1 into 6th channel
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
-            ser.write(b'<6,6,0>')
+            self._serialThread.insertValIntoDaqReadings(6, 0)
             self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, secondrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
-            ser.write(b'<6,6,1>')
+            self._serialThread.insertValIntoDaqReadings(6, 1)
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondflexend and self._mvctrialcounter < thirdrestend):
-            ser.write(b'<6,6,0>')
+            self._serialThread.insertValIntoDaqReadings(6, 0)
             self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, thirdrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= thirdrestend and self._mvctrialcounter < thirdflexend):
-            ser.write(b'<6,6,1>')
+            self._serialThread.insertValIntoDaqReadings(6, 1)
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(thirdflexend - self._mvctrialcounter))
         else:
-            ser.write(b'<1>')
+            self._serialThread.stopSdWrite()
             self.lbl_mvctriallivenotes.setText("Done")
             self._mvctimer.stop()
             self._mvctimer.deleteLater()

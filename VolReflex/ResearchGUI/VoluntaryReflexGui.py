@@ -13,7 +13,7 @@ import time
 from collections import deque
 import random
 import requests
-import ReferenceSignalGeneratorAPI.py as refSigGen
+import ReferenceSignalGeneratorAPI as refSigGen
 
 def getComPorts():
     tempPorts = []
@@ -1107,7 +1107,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setDefaultAutoTrial()
 
         #Init Voluntary Reflex Trial Thread
-        self.initVoluntaryReflexTrialThread()
+        # self.initVoluntaryReflexTrialThread()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

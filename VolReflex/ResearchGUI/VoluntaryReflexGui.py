@@ -105,20 +105,44 @@ class SerialThread(QThread):
     supplyMessage = pyqtSignal(str)
     _ser = None
     _serialTimer = None
+    _serIsRunning = False
 
-    def __init__(self, serialPort, serialBaudrate, serialTimeout):
+    def __init__(self):
         QThread.__init__(self)
         try:
-            self._ser = serial.Serial(port=serialPort, baudrate=serialBaudrate, timeout=serialTimeout)
-            self.supplyMessage.emit("Serial Connected")
+            # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
             self._serialTimer.setInterval(1.0/60.0*1000.0)
             self._serialTimer.timeout.connect(self.getAndEmitSerialVals)
-            self._serialTimer.start()
+        except:
+            self.supplyMessage.emit("Error Occured During Timer Setup")
+
+    def resetSerial(self, serialPort, serialBaudrate, serialTimeout):
+        # Stop Timer From Getting Serial Data and Emitting It
+        self._serialTimer.stop()
+
+        # Close serial connection if it's connected
+        if isinstance(ser, serial.Serial):
+            try:
+                ser.close()
+            except:
+                self.supplyMessage.emit("Closing Serial Caused an Error")
+
+        # Reconnect serial
+        try:
+            ser = serial.Serial(port=serialPort, baudrate=serialbaudrate, timeout=serialtimeout)
+            self.supplyMessage.emit("Connected")
+            self._serIsRunning = True
         except serial.SerialException as e:
             self.supplyMessage.emit("Serial Exception Occured")
+            self._serIsRunning = False
         except:
             self.supplyMessage.emit("Something Bad Happened")
+            self._serIsRunning = False
+
+        # Restart Serial Timer
+        if (self._serIsRunning):
+            self._serialTimer.start()
 
     def getAndEmitSerialVals(self):
         self._ser.write(b'<2>')
@@ -135,7 +159,7 @@ class SerialThread(QThread):
         if (len(vals) == 8):
             self.supplyDaqReadings.emit(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7])
         else:
-            self.supplyMessage.emit("8 Serial Values Weren't Received")
+            self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
 
 
 
@@ -416,18 +440,16 @@ class MainWindow(QtWidgets.QMainWindow):
         if (self._daqport is None):
             self.lbl_daqportstatus.setText("Select COM Port")
         else:
-            self._serialThread = SerialThread(self._daqport, serialbaudrate, serialtimeout)
-            self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
-            # self._serialThread.start()
+            if (self._serialThread is None):
+                self._serialThread = SerialThread()
+                self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
+            self._serialThread.resetSerial(self._daqport, serialbaudrate, serialtimeout)
 
     def tempVrButtonMethod(self):
         if (self._serialThread is not None):
             endtime = time.time() + 5
             print(endtime)
             self._serialThread.supplyDaqReadings.connect(self.printToTerminal)
-            # while time.time() < endtime:
-            #     whatever = 0
-            # self._serialThread.supplyDaqReadings.disconnect()
         else:
             print("serial not connected")
 

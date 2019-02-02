@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import *
 from PyQt5 import QtCore, QtGui, QtWidgets, uic
 from PyQt5.QtCore import QThread, pyqtSignal
 import serial.tools.list_ports
+from PyQt5.QtTest.QTest import qWait
 import pyqtgraph as pg
 import numpy as np
 import serial
@@ -13,7 +14,7 @@ import time
 from collections import deque
 import random
 import requests
-import ReferenceSignalGeneratorAPI as refSigGen
+import ReferenceSignalGeneratorAPI.py as refSigGen
 
 def getComPorts():
     tempPorts = []
@@ -911,12 +912,34 @@ class MainWindow(QtWidgets.QMainWindow):
         voltceil_high = 4095
 
         # Set Teensy Volt Floor = 0, Volt Ceil = 4095
+        self._calFloorSamples = []
+        self._calCeilSamples = []
+
         refSigGen.ChangeVoltWriteFloor(0)
         refSigGen.ChangeVoltWriteCeil(4095)
         refSigGen.GenerateCalibrationSignal()
 
-    def appendToCalFloorSamples(self, val0, val1, val2, val3, val4, val5, val6, val7):
-        vals = [val0]
+        qWait(125) #From 125ms - 375ms collect floor samples
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples)
+        qWait(250)
+        self._serialThread.supplyDaqReadings.disconnect()
+        qWait(250) #From 625ms - 875ms collect ceil samples
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples)
+        qWait(250)
+        self._serialThread.supplyDaqReadings.disconnect()
+
+        print("Floor Samples")
+        print(self._calFloorSamples)
+        print("\nCeil Samples")
+        print(self._calCeilSamples)
+
+
+
+    def appendToCalFloorSamples(self, vals):
+        self._calFloorSamples.append(vals[referencesignalchannel])
+
+    def appendToCalCeilSamples(self, vals):
+        self._calCeilSamples.append(vals[referencesignalchannel])
 
     def startVoluntaryReflexTrail(self):
         global ser
@@ -1107,7 +1130,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setDefaultAutoTrial()
 
         #Init Voluntary Reflex Trial Thread
-        # self.initVoluntaryReflexTrialThread()
+        self.initVoluntaryReflexTrialThread()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

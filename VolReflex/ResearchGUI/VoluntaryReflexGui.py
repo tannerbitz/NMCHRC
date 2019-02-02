@@ -145,22 +145,29 @@ class SerialThread(QThread):
             self._serialTimer.start()
 
     def getAndEmitSerialVals(self):
-        self._ser.write(b'<2>')
-        endtime = time.time() + 0.5
-        serialstring = ""
-        while (time.time() < endtime):
-            newchar = self._ser.read().decode()
-            serialstring += newchar
-            if (newchar == '>'):
-                break
-        serialstring = serialstring.strip('<>')
-        vals = serialstring.split(',')
-        vals = list(map(lambda x: int(x), vals)) # convert str to int
-        if (len(vals) == 8):
-            self.supplyDaqReadings.emit(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7])
-        else:
-            self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
-
+        try:
+            self._ser.write(b'<2>')
+            endtime = time.time() + 0.5
+            serialstring = ""
+            while (time.time() < endtime):
+                newchar = self._ser.read().decode()
+                serialstring += newchar
+                if (newchar == '>'):
+                    break
+            serialstring = serialstring.strip('<>')
+            vals = serialstring.split(',')
+            vals = list(map(lambda x: int(x), vals)) # convert str to int
+            if (len(vals) == 8):
+                self.supplyDaqReadings.emit(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7])
+            else:
+                self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
 
 
 

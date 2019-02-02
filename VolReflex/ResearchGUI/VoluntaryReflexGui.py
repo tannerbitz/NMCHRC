@@ -101,11 +101,18 @@ def resetSerial(self):
             self.lbl_daqportstatus.setText("Error Connecting")
 
 class SerialThread(QThread):
+    # Signals
     supplyDaqReadings = pyqtSignal(float, float, float, float, float, float, float, float)
     supplyMessage = pyqtSignal(str)
+
+    # Class Data
     _ser = None
     _serialTimer = None
     _serIsRunning = False
+    _voltRanges = {'ZERO_TO_FIVE':0,
+                   'NEG_FIVE_TO_FIVE':1,
+                   'ZERO_TO_TEN':2,
+                   'NEG_TEN_TO_TEN':3}
 
     def __init__(self):
         QThread.__init__(self)
@@ -113,7 +120,7 @@ class SerialThread(QThread):
             # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
             self._serialTimer.setInterval(1.0/60.0*1000.0)
-            self._serialTimer.timeout.connect(self.getAndEmitSerialVals)
+            self._serialTimer.timeout.connect(self.getDaqReadings)
         except:
             self.supplyMessage.emit("Error Occured During Timer Setup")
 
@@ -144,7 +151,7 @@ class SerialThread(QThread):
         if (self._serIsRunning):
             self._serialTimer.start()
 
-    def getAndEmitSerialVals(self):
+    def getDaqReadings(self):
         try:
             self._ser.write(b'<2>')
             endtime = time.time() + 0.5
@@ -163,13 +170,122 @@ class SerialThread(QThread):
                 self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
         except (OSError, serial.SerialException):
             self._serialTimer.stop()
+            self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
         except:
             self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def startSdWrite(self, filename):
+        # DAQ Command to Start a Write is <0,filename,YEAR,MONTH,DAY,HOUR,MINUTE,SECOND>
+        n = datetime.datetime.now()
+        startStr = "<0,{},{},{},{},{},{},{}>".format(filename, n.year, n.month, n.day, n.hour, n.minute, n.second)
+        bCmdStr = str.encode(startStr)
+        try:
+            self._ser.write(bCmdStr)
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def stopSdWrite(self):
+        # DAQ Command to Start a Write is <1>
+        bCmdStr = str.encode("<1>")
+        try:
+            self._ser.write(bCmdStr)
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
             self.supplyMessage.emit(errStr)
 
 
+    def changeVoltageRange(self, channel, voltRangeInt):
+        # DAQ Command to Change Voltage has the form <5,channel,voltRangeInt>
+        cmdStr = "<5,{},{}>".format(channel, voltRangeInt)
+        bCmdStr = str.encode(startStr)
+        try:
+            self._ser.write(bCmdStr)
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def insertValIntoDaqReadings(self, channel, val):
+        # DAQ Command to Start a Write is <6,channel,val>
+        cmdStr = "<6,{},{}>".format(channel, voltRangeInt)
+        bCmdStr = str.encode(startStr)
+        try:
+            self._ser.write(bCmdStr)
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def resetI2CDeviceSettings(self):
+        # DAQ Command to Start a Write is <7>
+        bCmdStr = str.encode("<7>")
+        try:
+            self._ser.write(bCmdStr)
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def isSDCardInserted(self):
+        # DAQ Command to Start a Write is <8>
+        bCmdStr = str.encode("<8>")
+        try:
+            self._ser.write(bCmdStr)
+            endtime = time.time() + 0.5
+            serialstring = ""
+            while (time.time() < endtime):
+                newchar = self._ser.read().decode()
+                serialstring += newchar
+                if (newchar == '>'):
+                    break
+            serialstring = serialstring.strip('<>')
+            if (serialstring == "True"):
+                return True
+            elif (serialstring == "False"):
+                return False
+            else:
+                self.supplyMessage.emit("Unexpected value received during isSDCardInserted method")
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except:
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
 
 
 class VolReflexTrialThread(QThread):

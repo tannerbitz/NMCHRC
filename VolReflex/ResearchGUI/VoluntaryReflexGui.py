@@ -181,8 +181,8 @@ class SerialThread(QThread):
     def startSdWrite(self, filename):
         # DAQ Command to Start a Write is <0,filename,YEAR,MONTH,DAY,HOUR,MINUTE,SECOND>
         n = datetime.datetime.now()
-        startStr = "<0,{},{},{},{},{},{},{}>".format(filename, n.year, n.month, n.day, n.hour, n.minute, n.second)
-        bCmdStr = str.encode(startStr)
+        cmdStr = "<0,{},{},{},{},{},{},{}>".format(filename, n.year, n.month, n.day, n.hour, n.minute, n.second)
+        bCmdStr = str.encode(cmdStr, 'utf-8')
         try:
             self._ser.write(bCmdStr)
         except (OSError, serial.SerialException):
@@ -197,7 +197,7 @@ class SerialThread(QThread):
 
     def stopSdWrite(self):
         # DAQ Command to Start a Write is <1>
-        bCmdStr = str.encode("<1>")
+        bCmdStr = str.encode("<1>", 'utf-8')
         try:
             self._ser.write(bCmdStr)
         except (OSError, serial.SerialException):
@@ -214,7 +214,7 @@ class SerialThread(QThread):
     def changeVoltageRange(self, channel, voltRangeInt):
         # DAQ Command to Change Voltage has the form <5,channel,voltRangeInt>
         cmdStr = "<5,{},{}>".format(channel, voltRangeInt)
-        bCmdStr = str.encode(startStr)
+        bCmdStr = str.encode(cmdStr, 'utf-8')
         try:
             self._ser.write(bCmdStr)
         except (OSError, serial.SerialException):
@@ -229,8 +229,8 @@ class SerialThread(QThread):
 
     def insertValIntoDaqReadings(self, channel, val):
         # DAQ Command to Start a Write is <6,channel,val>
-        cmdStr = "<6,{},{}>".format(channel, voltRangeInt)
-        bCmdStr = str.encode(startStr)
+        cmdStr = "<6,{},{}>".format(channel, val)
+        bCmdStr = str.encode(cmdStr, 'utf-8')
         try:
             self._ser.write(bCmdStr)
         except (OSError, serial.SerialException):
@@ -245,7 +245,7 @@ class SerialThread(QThread):
 
     def resetI2CDeviceSettings(self):
         # DAQ Command to Start a Write is <7>
-        bCmdStr = str.encode("<7>")
+        bCmdStr = str.encode("<7>", 'utf-8')
         try:
             self._ser.write(bCmdStr)
         except (OSError, serial.SerialException):
@@ -260,7 +260,7 @@ class SerialThread(QThread):
 
     def isSDCardInserted(self):
         # DAQ Command to Start a Write is <8>
-        bCmdStr = str.encode("<8>")
+        bCmdStr = str.encode("<8>", 'utf-8')
         try:
             self._ser.write(bCmdStr)
             endtime = time.time() + 0.5
@@ -472,6 +472,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if (self._serialThread.isSDCardInserted() == False):
             self.lbl_mvctriallivenotes.setText("Insert SD Card")
+            return
 
         # Start Writing Process
         self._serialThread.startSdWrite(self._mvctrialfilename)

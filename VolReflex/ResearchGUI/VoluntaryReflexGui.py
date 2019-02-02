@@ -13,6 +13,7 @@ import time
 from collections import deque
 import random
 import requests
+import ReferenceSignalGeneratorAPI.py as refSigGen
 
 def getComPorts():
     tempPorts = []
@@ -29,7 +30,6 @@ def isStringAnInt(s):
         return False
 
 # Serial Object
-ser = None
 serialbaudrate = 115200
 serialtimeout = 1
 serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
@@ -102,7 +102,7 @@ def resetSerial(self):
 
 class SerialThread(QThread):
     # Signals
-    supplyDaqReadings = pyqtSignal(float, float, float, float, float, float, float, float)
+    supplyDaqReadings = pyqtSignal(list)
     supplyMessage = pyqtSignal(str)
 
     # Class Data
@@ -165,7 +165,7 @@ class SerialThread(QThread):
             vals = serialstring.split(',')
             vals = list(map(lambda x: int(x), vals)) # convert str to int
             if (len(vals) == 8):
-                self.supplyDaqReadings.emit(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7])
+                self.supplyDaqReadings.emit(vals)
             else:
                 self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
         except (OSError, serial.SerialException):
@@ -286,167 +286,6 @@ class SerialThread(QThread):
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
             self.supplyMessage.emit(errStr)
-
-
-class VolReflexTrialThread(QThread):
-    supplyDaqReadings = pyqtSignal(float, float, float)
-    printToVolReflexLabel = pyqtSignal(str)
-
-    def __init__(self):
-        QThread.__init__(self)
-
-    def getMeasRefSignals(self):
-        global measuredsignalchannel
-        global referencesignalchannel
-        global serialvals
-        ser.write(b'<2>')
-        serialstring = getSerialResponse()
-        serialvals = serialstring.split(',')
-        measuredval = int(serialvals[measuredsignalchannel])
-        referenceval = int(serialvals[referencesignalchannel])
-        return [referenceval, measuredval]
-
-    def getMinMaxRefLevels(self):
-        if (volreflexflexion == "DF"):
-            maxreferenceval = percentmvc*mvctable['df']
-            minreferenceval = 0
-        elif (volreflexflexion == "PF"):
-            maxreferenceval = 0
-            minreferenceval = -(percentmvc*mvctable['pf'])
-        elif (volreflexflexion == "DFPF"):
-            maxreferenceval = percentmvc*mvctable['dfpf']
-            minreferenceval = -maxreferenceval
-
-        referencevalspan = maxreferenceval - minreferenceval
-        return [minreferenceval, maxreferenceval, referencevalspan]
-
-    def waitForNewZeroLevel(self):
-        whatever = 0
-
-    def standardRun(self):
-        global topborder
-        global bottomborder
-        global refsignaltype
-        global refsignalfreq
-        global serialvals
-        self.printToVolReflexLabel.emit("Rest Phase")
-        starttime = time.time()
-        zeroduration = 5
-        zerocount = 0
-        zerolevel = 0
-        endtime = starttime + zeroduration
-        while (time.time() < endtime):
-            [referenceval, measuredval] = self.getMeasRefSignals()
-            zerocount = zerocount + 1
-            zerolevel = zerolevel + (measuredval - zerolevel)/zerocount
-            progressbarval = round(100*(time.time() - starttime)/zeroduration)
-            self.supplyDaqReadings.emit(0, 0, progressbarval)
-
-        zerolevel = int(zerolevel)
-        measuredvalqueue = deque([0, 0, 0])
-        [minreferenceval, maxreferenceval, referencevalspan] = self.getMinMaxRefLevels()
-        starttime = time.time()
-        self.printToVolReflexLabel.emit("Match the Reference Line")
-
-        if (refsignaltype in ['sine', 'step']):
-            numcycles = 6
-            if refsignaltype == "step":
-                steptime = 3.0
-                changesteptimeurl = "http://" + ip_add + "/ChangeStepTime?T=" + str(steptime)
-                requests.get(changesteptimeurl)
-
-
-            for icycle in range(0, numcycles):
-                randtime = random.uniform(4.0, 6.0)
-                starttime_rand = time.time()
-                endtime_rand = starttime_rand + randtime
-                starttime_cycle = endtime_rand
-                if refsignaltype == "sine":
-                    endtime_cycle = starttime_cycle + 1/refsignalfreq
-                elif refsignaltype == "step":
-                    endtime_cycle = starttime_cycle + steptime
-
-                # Random Time Between Cycles
-                while (time.time() < endtime_rand):
-                    [referenceval, measuredval] = self.getMeasRefSignals()
-                    measuredvalqueue.popleft()
-                    measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
-                    measuredval = np.mean(measuredvalqueue)
-                    referenceval = int(serialvals[referencesignalchannel])
-                    if (measuredval < bottomborder):
-                        measuredval = bottomborder
-                    elif (measuredval > topborder):
-                        measuredval = topborder
-
-                    progressbarval = round((icycle)/numcycles*100)
-                    referenceval = 0
-                    self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
-
-                # Trigger reference signal generator (Due) to output a sine cycle
-                if refsignaltype == "sine":
-                    if volreflexflexion in ["DF", "PF"]:
-                        newcycleaddress = "http://" + ip_add + "/NewCycleUni"
-                    elif volreflexflexion in ["DFPF"]:
-                        newcycleaddress = "http://" + ip_add + "/NewCycleMulti"
-                elif refsignaltype == "step":
-                    newcycleaddress = "http://" + ip_add + "/NewCycleStep"
-                requests.get(newcycleaddress)
-                # Cycle Time
-                while (time.time() < endtime_cycle):
-                    [referenceval, measuredval] = self.getMeasRefSignals()
-                    measuredvalqueue.popleft()
-                    measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
-                    measuredval = np.mean(measuredvalqueue)
-                    referenceval = int(serialvals[referencesignalchannel])
-                    if (measuredval < bottomborder):
-                        measuredval = bottomborder
-                    elif (measuredval > topborder):
-                        measuredval = topborder
-
-                    progressbarval = round((icycle + 1)/numcycles*100)
-                    if refsignaltype == "sine":
-                        if volreflexflexion in ["DF", "DFPF"]:
-                            referenceval = minreferenceval + ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
-                        elif volreflexflexion == "PF":
-                            referenceval = maxreferenceval - ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
-                    elif refsignaltype == "step":
-                        if volreflexflexion ==  "DF":
-                            if referenceval < 2048:
-                                referenceval = minreferenceval
-                            else:
-                                referenceval = maxreferenceval
-                        elif volreflexflexion == "PF":
-                            if referenceval < 2048:
-                                referenceval = maxreferenceval
-                            else:
-                                referenceval = minreferenceval
-                    self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
-
-            #Extra 3 seconds of padding
-            endtime = time.time() + 3
-            while (time.time() < endtime):
-                [referenceval, measuredval] = self.getMeasRefSignals()
-                measuredvalqueue.popleft()
-                measuredvalqueue.append(serval2torqueNm*(measuredval - zerolevel))
-                measuredval = np.mean(measuredvalqueue)
-                referenceval = int(serialvals[referencesignalchannel])
-                if (measuredval < bottomborder):
-                    measuredval = bottomborder
-                elif (measuredval > topborder):
-                    measuredval = topborder
-
-                progressbarval = round((icycle + 1)/numcycles*100)
-                referenceval = 0
-                self.supplyDaqReadings.emit(measuredval, referenceval, progressbarval)
-
-        self.supplyDaqReadings.emit(0,0,0)
-        self.printToVolReflexLabel.emit("Done")
-        ser.write(b'<1>')
-
-
-    def run(self):
-        global refsignaltype
-        self.standardRun()
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -579,8 +418,8 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             print("serial not connected")
 
-    def printToTerminal(self, val0, val1, val2, val3, val4, val5, val6, val7):
-        print("{}, {}, {}, {}, {}, {}, {}, {}".format(val0, val1, val2, val3, val4, val5, val6, val7))
+    def printToTerminal(self, vals):
+        print(vals)
 
     def printToDaqPortStatus(self, inStr):
         self.lbl_daqportstatus.setText(inStr)
@@ -679,105 +518,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self._mvctimer.deleteLater()
 
         self._mvctrialcounter += 1
-
-
-    def getMvcFile(self):
-        #Open filedialog box
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        files, _ = QFileDialog.getOpenFileNames(self, "QFileDialog.getOpenFileNames()", "",
-                                                "Text Files (*.txt)", options=options)
-        if files:
-            for f in files:
-                if (f.find('MVC') == -1):
-                    self.lbl_mvctriallivenotes.setText("Please Select MVC File")
-                else:
-                    tempfullfilepath = f
-                    f = f.split('/')
-                    f = f[-1] # now f is just the filename
-                    tempfilename = f
-                    f = f.strip('.txt')
-                    f = f.split('_')
-                    tempflexion = f[-1]
-                    temppatientnumber = f[0]
-                    temppatientnumber = int(temppatientnumber.strip("Patient"))
-                    if ( temppatientnumber != self._patientnumber):
-                        self.lbl_mvctriallivenotes.setText("Patient Number does not match.  Import aborted")
-                    else:
-                        if (tempflexion == 'DF'):
-                            self._mvcdffile = tempfullfilepath
-                            self.lbl_mvctriallivenotes.setText("")
-                            self.lineedit_mvcmanual.setText(tempfilename)
-                        elif (tempflexion == 'PF'):
-                            self._mvcpffile = tempfullfilepath
-                            self.lbl_mvctriallivenotes.setText("")
-                            self.lineedit_mvcmanual.setText(tempfilename)
-                        else:
-                            self.lbl_mvctriallivenotes.setText("Filename does not specify flexion")
-
-    def importMvcFiles(self):
-        global measuredsignalchannel
-        global mvctable
-        if measuredsignalchannel is None:
-            self.lbl_mvctriallivenotes.setText('Set Measured Signal Channel')
-            return
-        tempfilestoimport = []
-        if self._mvcdffile is not None:
-            tempfilestoimport.append(self._mvcdffile)
-        if self._mvcpffile is not None:
-            tempfilestoimport.append(self._mvcpffile)
-
-        if (len(tempfilestoimport)==0):
-            self.lbl_mvctriallivenotes.setText('Choose file to import')
-            return
-
-        for f in tempfilestoimport:
-            if (f.find('DF') != -1):
-                tempflexion = 'DF'
-            elif (f.find('PF') != -1):
-                tempflexion = 'PF'
-            else:
-                self.lbl_mvctriallivenotes.setText("Flexion direction was not found in file during import")
-                return
-            tempdata = np.loadtxt(fname=f, delimiter=',')
-            flagcol = tempdata[:,6]
-            measuredsigdata = tempdata[:, measuredsignalchannel]
-            # get indices where 'rest' or 'flex' periods end
-            rest_flex_ending_indices = [0]
-            currentflag = flagcol[0]
-            for i in range(1, len(flagcol)):
-                if (flagcol[i] != currentflag):
-                    currentflag = flagcol[i]
-                    rest_flex_ending_indices.append(i)
-                elif (i==(len(flagcol)-1)):
-                    rest_flex_ending_indices.append(i+1)
-            for i in range(1, len(rest_flex_ending_indices)):
-                if ((rest_flex_ending_indices[i] - rest_flex_ending_indices[i-1]) < 4000):
-                    self.lbl_mvctriallivenotes.setText("Rest or flex period was less than 4000 readings. Check data")
-                    return
-            mvcserialvals = []
-            for i in range(0,3):
-                restbeginindex = rest_flex_ending_indices[i*2]
-                restendindex = rest_flex_ending_indices[i*2 + 1]
-                flexbeginindex = rest_flex_ending_indices[i*2 + 1]
-                flexendindex = rest_flex_ending_indices[i*2 + 2]
-                restmeasurements = measuredsigdata[restbeginindex+500:restendindex-500]  # limit rest measurements just in case the patient flexed early or late
-                mvcmeasaurements = measuredsigdata[flexbeginindex:flexendindex]
-                zerolevel = int(restmeasurements.mean())
-                if (tempflexion == 'DF'):
-                    mvcserialvals.append(int(mvcmeasaurements.max() - zerolevel))
-                elif (tempflexion == 'PF'):
-                    mvcserialvals.append(int(mvcmeasaurements.min() - zerolevel))
-
-            if (tempflexion == 'DF'):
-                mvcserialval = abs(max(mvcserialvals))
-                mvctable['pf'] = mvcserialval*serval2torqueNm
-                self.tablewidget_mvc.setItem(0, 0, QTableWidgetItem(str(round(mvctable['pf'],2))))
-            elif (tempflexion == 'PF'):
-                mvcserialval = abs(min(mvcserialvals))
-                mvctable['df'] = mvcserialval*serval2torqueNm
-                self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
-            self.setDfPfMvc()
 
     def setDfPfMvc(self):
         global mvctable
@@ -1133,81 +873,49 @@ class MainWindow(QtWidgets.QMainWindow):
         self._volreflexfilename = self._volreflexfilename + ".txt"
         self.lbl_volreflexfilename.setText(self._volreflexfilename)
 
+
+
     def calibraterefsignal(self):
-        global ser
-        # Exit routine if settings aren't complete
+        """
+        The reference signal is being generated on a 12-bit DAC.  Therefore
+        the input to the DAC is 0-4095.  After this analog signal goes through
+        an op-amp it should be amplified to 0-5V.  The DAQ that reads this signal
+        can have an internal bias that creates saturation at the low and high ends
+        of the signal.  For instance, the DAC signal generated with an input of 0
+        and 100 may both be read as 0 by the DAQ's ADC.  This code attempts to find
+        the values at which the saturation ends and sets the Teensy's DAC input
+        limits to those values.
+
+        To do this, we will first set the floor and ceiling to 0 and 4095 then
+        take samples of the DAQ measurements at those voltages.  We will then take
+        measurements 1024 above the floor and below the ceil and compare those
+        samples data to the floor and ceil samples with a t-test.  We will then
+        perform a bi-section method to hone in on the values that correspond to the
+        DAQ's saturation limits.
+        """
+
+        # Check if serial is running and if reference and measured signal channels have been set
+        if (self._serialThread._serIsRunning == False):
+            self.lbl_volreflexlivenotes.setText('Serial Is Not Running')
+            return
+
         if (referencesignalchannel is None):
-            self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
-            return
-        # Check if serial is connected
-        if ser is None:
-            self.lbl_volreflexlivenotes.setText("Connect Serial")
-            return
-        elif isinstance(ser, serial.Serial):
-            ser.flushInput()
-            ser.write(b'<8>')
-            serialstring = getSerialResponse()
-            # Check if sd card is inserted
-            if (serialstring == "False"):
-                self.lbl_volreflexlivenotes.setText("Insert SD Card")
-                return
-            elif (serialstring == ""):
-                self.lbl_volreflexlivenotes.setText("No SD Card Response")
-                return
-        else:
-            self.lbl_volreflexlivenotes.setText("Something has gone very badly...")
+            self.lbl_volreflexlivenotes.setText('Set Reference Signal Channel')
             return
 
-        serialstring = getSerialResponse()
-        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
-            self.lbl_mvctriallivenotes.setText(serialstring)
-            return
+        #Begin Calibration
+        voltfloor_low = 0
+        voltfloor_high = 1024
+        voltceil_low = 3071
+        voltceil_high = 4095
 
-        # Ensure channels reading correct voltage Ranges
-        voltagerangecommand_referencesignal = "<5,{},0>".format(referencesignalchannel) # assumes 0-5V readings
-        ser.write(str.encode(voltagerangecommand_referencesignal))
+        # Set Teensy Volt Floor = 0, Volt Ceil = 4095
+        refSigGen.ChangeVoltWriteFloor(0)
+        refSigGen.ChangeVoltWriteCeil(4095)
+        refSigGen.GenerateCalibrationSignal()
 
-        self.lbl_volreflexlivenotes.setText("Calibrating...")
-
-        #Trigger Calibration Signal from Ref Signal Generator
-        calibrationurl = "http://" + ip_add + "/Calibrate"
-        requests.get(calibrationurl)
-
-        global calibrationReferenceMeasurements
-        calibrationReferenceMeasurements = []
-        self._calibrationtimercounter = 0
-        self._calibrationtimer = QtCore.QTimer()
-        self._calibrationtimer.timeout.connect(self.completeCalibration)
-        self._calibrationtimer.start(2)
-
-    def completeCalibration(self):
-        global calibrationReferenceMeasurements
-        global measuredsignalchannel
-        global referencesignalchannel
-        global serialvals
-        global refrawmax
-        global refrawmin
-        global refrawspan
-        global calibrationCompleteFlag
-        self._calibrationtimercounter += 1
-        if (self._calibrationtimercounter < 500):
-            ser.write(b'<2>')
-            serialstring = getSerialResponse()
-            serialvals = serialstring.split(',')
-            referenceval = int(serialvals[referencesignalchannel])
-            calibrationReferenceMeasurements.append(referenceval)
-        else:
-            self._calibrationtimer.stop()
-            self._calibrationtimer.deleteLater()
-            refrawmin = min(calibrationReferenceMeasurements)
-            refrawmax = max(calibrationReferenceMeasurements)
-            refrawspan = refrawmax - refrawmin
-            calibrationCompleteFlag = True
-            self.lbl_calmin.setText(str(refrawmin))
-            self.lbl_calmax.setText(str(refrawmax))
-            self.lbl_calspan.setText(str(refrawspan))
-            self.lbl_volreflexlivenotes.setText("Calibration Complete")
-
+    def appendToCalFloorSamples(self, val0, val1, val2, val3, val4, val5, val6, val7):
+        vals = [val0]
 
     def startVoluntaryReflexTrail(self):
         global ser

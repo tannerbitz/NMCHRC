@@ -899,6 +899,7 @@ class MainWindow(QtWidgets.QMainWindow):
         global refrawmin
         global refrawmax
         global refrawspan
+        global calibrationCompleteFlag
 
         # Check if serial is running and if reference and measured signal channels have been set
         if (self._serialThread._serIsRunning == False):
@@ -1035,10 +1036,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._calCeilSamples.append(vals[referencesignalchannel])
 
     def startVoluntaryReflexTrail(self):
-        global ser
-        global measuredsignalchannel
-        global referencesignalchannel
-        global calibrationCompleteFlag
+        print("trial started")
         #Check Settings
         if (self._serialThread._serIsRunning == False):
             self.lbl_volreflexlivenotes.setText("Reset Serial")
@@ -1080,6 +1078,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._serialThread.supplyDaqReadings.disconnect()
 
         zerolevel = np.mean(self.restphasesamples)
+        print(self.restphasesamples)
         print(zerolevel)
 
 

@@ -402,7 +402,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_patientnumber.setText("")
             self.lbl_patientnumbererror.setText("Patient Number Must Be An Integer")
 
-    def tempResetSerial(self):
+    def resetSerialOnThread(self):
         if (self._daqport is None):
             self.lbl_daqportstatus.setText("Select COM Port")
         else:
@@ -1040,44 +1040,53 @@ class MainWindow(QtWidgets.QMainWindow):
         global referencesignalchannel
         global calibrationCompleteFlag
         #Check Settings
-        if (self._volreflextrialthread.isRunning()):
-            self.lbl_volreflexlivenotes.setText("Thread Is Already Running")
+        if (self._serialThread._serIsRunning == False):
+            self.lbl_volreflexlivenotes.setText("Reset Serial")
             return
-        self.lbl_volreflexlivenotes.setText("")
+
         if (measuredsignalchannel is None):
             self.lbl_volreflexlivenotes.setText("Set Measured Signal Channel")
             return
         if (referencesignalchannel is None):
             self.lbl_volreflexlivenotes.setText("Set Reference Signal Channel")
             return
-        if not (isinstance(ser, serial.Serial)):
-            self.lbl_volreflexlivenotes.setText("Connect DAQ Device")
-            return
+
         if (self._volreflexankleposition is None):
             self.lbl_volreflexlivenotes.setText("Set Ankle Positon")
             return
+
         if (volreflexflexion is None):
             self.lbl_volreflexlivenotes.setText("Set Flexion")
             return
+
         if (calibrationCompleteFlag == False):
             self.lbl_volreflexlivenotes.setText("Complete Calibration")
+            return
+
+        self.lbl_volreflexlivenotes.setText("")
 
         # Ensure channels reading correct voltage Ranges
-        voltagerangecommand_measuredsignal = "<5,{},1>".format(measuredsignalchannel)   # assuems -5V to +5V readings
-        voltagerangecommand_referencesignal = "<5,{},0>".format(referencesignalchannel) # assumes 0-5V readings
-        ser.write(str.encode(voltagerangecommand_measuredsignal))
-        ser.write(str.encode(voltagerangecommand_referencesignal))
+        self._serialThread.changeVoltageRange(measuredsignalchannel, self._serialThread._voltRanges['NEG_FIVE_TO_FIVE'])
+        self._serialThread.changeVoltageRange(referencesignalchannel, self._serialThread._voltRanges['ZERO_TO_FIVE'])
+
         # Start Writing Process
-        ser.write(b'<6,6,0>')  # Insert Value into 6th channel of daq reading for post-process flag
-        n = datetime.datetime.now()
-        startStr = "<0,{},{},{},{},{},{},{}>".format(self._volreflexfilename, n.year, n.month, n.day, n.hour, n.minute, n.second)
-        bStartStr = str.encode(startStr)
-        ser.write(bStartStr) #start writing to sd
-        serialstring = getSerialResponse()
-        if (len(serialstring) != 0):  # This would happen if there was an unexpected error with the DAQ
-            self.lbl_volreflexlivenotes.setText(serialstring)
-            return
-        self._volreflextrialthread.start()
+        self._serialThread.startSdWrite(self._volreflexfilename)
+
+        # Start Rest Phase
+        self.lbl_volreflexlivenotes.setText("Rest Phase")
+        self.restphasesamples = []
+        self._serialThread.supplyDaqReadings.connect(self.appendToRestPhaseSamples)
+        QtTest.QTest.qWait(5000) # 5s rest
+        self._serialThread.supplyDaqReadings.disconnect()
+
+        zerolevel = np.mean(self.restphasesamples)
+        print(zerolevel)
+
+
+
+
+    def appendToRestPhaseSamples(self, vals):
+        self.restphasesamples.append(vals[measuredsignalchannel])
 
 
     def updateVolReflexPlot(self, measuredval, referenceval, progressbarval):
@@ -1101,8 +1110,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_selectreferencesignal.clicked.connect(self.selectReferenceSignalChannel)
         self.btn_selectmeasuredsignal.clicked.connect(self.selectMeasuredSignalChannel)
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
-        # self.btn_resetserial.clicked.connect(self.resetSerial)
-        self.btn_resetserial.clicked.connect(self.tempResetSerial)
+        self.btn_resetserial.clicked.connect(self.resetSerialOnThread)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
         # self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
         self.btn_startvolreflextrial.clicked.connect(self.tempVrButtonMethod)

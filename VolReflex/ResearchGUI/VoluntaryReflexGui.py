@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import *
 from PyQt5 import QtCore, QtGui, QtWidgets, uic, QtTest
 from PyQt5.QtCore import QThread, pyqtSignal
 import serial.tools.list_ports
-from PyQt5 import QtTest
 import pyqtgraph as pg
 import numpy as np
 import serial
@@ -15,6 +14,7 @@ from collections import deque
 import random
 import requests
 import ReferenceSignalGeneratorAPI as refSigGen
+from scipy import stats
 
 def getComPorts():
     tempPorts = []
@@ -896,6 +896,10 @@ class MainWindow(QtWidgets.QMainWindow):
         DAQ's saturation limits.
         """
 
+        global refrawmin
+        global refrawmax
+        global refrawspan
+
         # Check if serial is running and if reference and measured signal channels have been set
         if (self._serialThread._serIsRunning == False):
             self.lbl_volreflexlivenotes.setText('Serial Is Not Running')
@@ -907,8 +911,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #Begin Calibration
         voltfloor_low = 0
-        voltfloor_high = 1024
-        voltceil_low = 3071
+        voltfloor_high = 2047
+        voltceil_low = 2048
         voltceil_high = 4095
 
         # Make DAQ of reference signal channel measure 0-5V
@@ -919,24 +923,109 @@ class MainWindow(QtWidgets.QMainWindow):
         self._calFloorSamples = []
         self._calCeilSamples = []
 
-        refSigGen.ChangeVoltWriteFloor(0)
-        refSigGen.ChangeVoltWriteCeil(4095)
+        refSigGen.ChangeVoltWriteFloor(voltfloor_low)
+        refSigGen.ChangeVoltWriteCeil(voltceil_high)
         refSigGen.GenerateCalibrationSignal()
 
+        # Calibration signal lasts 1 sec.  First 500ms is floor volt, last 500ms is ceil volt
         QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
-        self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples)
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect()
         QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
-        self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples)
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect()
 
-        print("Floor Samples")
-        print(self._calFloorSamples)
-        print("\nCeil Samples")
-        print(self._calCeilSamples)
+        voltfloorsamples_low = self._calFloorSamples
+        voltceilsamples_high = self._calCeilSamples
 
+        nCycles = 10
+        for iCycle in range(0, nCycles):
+            self.lbl_volreflexlivenotes.setText("Calibration Cycle\n{} of {}".format(iCycle, nCycles))
+
+            voltfloor_test = int((voltfloor_low + voltfloor_high)/2)
+            voltceil_test = int((voltceil_low + voltceil_high)/2)
+
+            # Set Teensy Volt Floor = 0, Volt Ceil = 4095
+            self._calFloorSamples = []
+            self._calCeilSamples = []
+
+            refSigGen.ChangeVoltWriteFloor(voltfloor_test)
+            refSigGen.ChangeVoltWriteCeil(voltceil_test)
+            refSigGen.GenerateCalibrationSignal()
+
+            # Calibration signal lasts 1 sec.  First 500ms is floor volt, last 500ms is ceil volt
+            QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
+            self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
+            QtTest.QTest.qWait(250)
+            self._serialThread.supplyDaqReadings.disconnect()
+            QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
+            self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
+            QtTest.QTest.qWait(250)
+            self._serialThread.supplyDaqReadings.disconnect()
+
+            voltfloorsamples_test = self._calFloorSamples
+            voltceilsamples_test = self._calCeilSamples
+
+            # t-test (Welch's t-test)
+            # Floor
+            [t, p] = stats.ttest_ind(a=voltfloorsamples_low,
+                                     b=voltfloorsamples_test,
+                                     axis=0,
+                                     equal_var=False)
+
+            if (p < 0.98):
+                voltfloor_high = voltfloor_test
+            else:
+                voltfloor_low = voltfloor_test
+                voltfloorsamples_low = voltfloorsamples_test
+
+            # Ceil
+            [t, p] = stats.ttest_ind(a=voltceilsamples_high,
+                                     b=voltceilsamples_test,
+                                     axis=0,
+                                     equal_var=False)
+
+            if (p < 0.98):
+                voltceil_low = voltceil_test
+            else:
+                voltceil_high = voltceil_test
+                voltceilsamples_high = voltceilsamples_test
+
+            print("cycle {}: floor: {} ceil: {}".format(iCycle, voltfloor_low, voltceil_high))
+
+        # Move 10 inside of floor and ceil to make floor for noise in data
+        voltfloor = voltfloor_low + 10
+        voltceil = voltceil_high - 10
+
+        # Set Teensy Volt Floor = 0, Volt Ceil = 4095
+        self._calFloorSamples = []
+        self._calCeilSamples = []
+
+        refSigGen.ChangeVoltWriteFloor(voltfloor_test)
+        refSigGen.ChangeVoltWriteCeil(voltceil_test)
+        refSigGen.GenerateCalibrationSignal()
+
+        # Calibration signal lasts 1 sec.  First 500ms is floor volt, last 500ms is ceil volt
+        QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
+        QtTest.QTest.qWait(250)
+        self._serialThread.supplyDaqReadings.disconnect()
+        QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
+        self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
+        QtTest.QTest.qWait(250)
+        self._serialThread.supplyDaqReadings.disconnect()
+
+        refrawmin = np.min(self._calFloorSamples)
+        refrawmax = np.max(self._calCeilSamples)
+        refrawspan = abs(refrawmax - refrawmin)
+
+        calibrationCompleteFlag = True
+        self.lbl_calmin.setText(str(refrawmin))
+        self.lbl_calmax.setText(str(refrawmax))
+        self.lbl_calspan.setText(str(refrawspan))
+        self.lbl_volreflexlivenotes.setText("Calibration Complete")
 
 
     def appendToCalFloorSamples(self, vals):

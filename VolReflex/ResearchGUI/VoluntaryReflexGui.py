@@ -12,7 +12,6 @@ import datetime
 import time
 from collections import deque
 import random
-import requests
 import ReferenceSignalGeneratorAPI as refSigGen
 from scipy import stats
 
@@ -35,8 +34,7 @@ serialbaudrate = 115200
 serialtimeout = 1
 serval2torqueNm = (125.0/2048.0)*(4.44822/1.0)*(0.15) #(125lbs/2048points)*(4.44822N/1lbs)*(0.15m)
 
-# Ref Signal Generator (NodeMcu)
-ip_add = "192.168.0.107"
+
 
 # Global Data
 referencesignalchannel = None
@@ -55,6 +53,8 @@ refrawmin = None
 refrawspan = None
 calibrationCompleteFlag = False
 
+
+
 # Populate dictionary for automatic trials
 autotrial_dict = {}
 for i in range(1, 11):
@@ -71,35 +71,23 @@ trial_seq = np.array([[ 19,	3 ,	16,	14,	11,	6 ,	7 ,	12,	18,	20,	5 ,	4 ,	13,	17,	
 
 
 
-def getSerialResponse():
-    global ser
-    endtime = time.time() + 0.5
-    serialstring = ""
-    while (time.time() < endtime):
-        newchar = ser.read().decode()
-        serialstring += newchar
-        if (newchar == '>'):
-            break
-    return serialstring.strip('<>')
+def updateGlobalMinMaxRefLevels():
+    global maxrefplotval
+    global minrefplotval
+    global refplotrange
+    if (volreflexflexion == "DF"):
+        maxrefplotval = percentmvc*mvctable['df']
+        minrefplotval = 0
+    elif (volreflexflexion == "PF"):
+        maxrefplotval = 0
+        minrefplotval = -(percentmvc*mvctable['pf'])
+    elif (volreflexflexion == "DFPF"):
+        maxrefplotval = percentmvc*mvctable['dfpf']
+        minrefplotval = -maxreferenceval
+
+    refplotrange = abs(maxrefplotval - minrefplotval)
 
 
-def resetSerial(self):
-    global ser
-    if (self._daqport is None):
-        self.lbl_daqportstatus.setText("Select COM Port")
-    elif ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
-        try:
-            ser.close()
-            ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
-            self.lbl_daqportstatus.setText("Connected")
-        except serial.SerialException as e:
-            self.lbl_daqportstatus.setText("Error Connecting")
-    elif ((self._daqport is not None) and (not isinstance(ser, serial.Serial))):
-        try:
-            ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
-            self.lbl_daqportstatus.setText("Connected")
-        except serial.SerialException as e:
-            self.lbl_daqportstatus.setText("Error Connecting")
 
 class SerialThread(QThread):
     # Signals
@@ -120,7 +108,8 @@ class SerialThread(QThread):
         try:
             # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
-            self._serialTimer.setInterval(1.0/60.0*1000.0)
+            self._serialGetFreq = 60.0
+            self._serialTimer.setInterval(1.0/self._serialGetFreq*1000.0)
             self._serialTimer.timeout.connect(self.getDaqReadings)
         except:
             self.supplyMessage.emit("Error Occured During Timer Setup")
@@ -411,13 +400,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
             self._serialThread.resetSerial(self._daqport, serialbaudrate, serialtimeout)
 
-    def tempVrButtonMethod(self):
-        if (self._serialThread is not None):
-            endtime = time.time() + 5
-            print(endtime)
-            self._serialThread.supplyDaqReadings.connect(self.printToTerminal)
-        else:
-            print("serial not connected")
+
 
     def printToTerminal(self, vals):
         print(vals)
@@ -425,23 +408,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def printToDaqPortStatus(self, inStr):
         self.lbl_daqportstatus.setText(inStr)
 
-    def resetSerial(self):
-        global ser
-        if (self._daqport is None):
-            self.lbl_daqportstatus.setText("Select COM Port")
-        elif ((self._daqport is not None) and (isinstance(ser, serial.Serial))):
-            try:
-                ser.close()
-                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
-                self.lbl_daqportstatus.setText("Connected")
-            except serial.SerialException as e:
-                self.lbl_daqportstatus.setText("Error Connecting")
-        elif ((self._daqport is not None) and (not isinstance(ser, serial.Serial))):
-            try:
-                ser = serial.Serial(port=self._daqport, baudrate=serialbaudrate, timeout=serialtimeout)
-                self.lbl_daqportstatus.setText("Connected")
-            except serial.SerialException as e:
-                self.lbl_daqportstatus.setText("Error Connecting")
 
     def setMvcTrialFlexion(self, btn_mvcflexion):
         tempStr = btn_mvcflexion.text()
@@ -768,8 +734,10 @@ class MainWindow(QtWidgets.QMainWindow):
             refsignalfreq = float(freqtext)
 
             # Change Freq on Ref Signal Generator (NodeMcu)
-            changefreqadd = "http://" + ip_add + "/ChangeFreq?Freq=" + freqtext
-            requests.get(changefreqadd)
+            res = refSigGen.ChangeFreq(refsignalfreq)
+            if (res == 0):
+                msgbox = QMessageBox(text="Please Connect To:\n\nNetwork: BetterLateThanNever\nPassword: PleaseWork")
+                msgbox.exec_()
 
             # make frequency info ready to add to filename
             btntext = btntext.replace(" ", "")
@@ -857,6 +825,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                    y=np.array([refsignalmax, refsignalmax]))
         self.plt.update()
         self.completeVoluntaryReflexFilename()
+        updateGlobalMinMaxRefLevels()
 
     def completeVoluntaryReflexFilename(self):
         global volreflexflexion
@@ -924,7 +893,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self._calFloorSamples = []
         self._calCeilSamples = []
 
-        refSigGen.ChangeVoltWriteFloor(voltfloor_low)
+        res = refSigGen.ChangeVoltWriteFloor(voltfloor_low)
+        if (res == 0):
+            msgbox = QMessageBox(text="Please Connect To:\n\nNetwork: BetterLateThanNever\nPassword: PleaseWork")
+            msgbox.exec_()
+            return
         refSigGen.ChangeVoltWriteCeil(voltceil_high)
         refSigGen.GenerateCalibrationSignal()
 
@@ -943,7 +916,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         nCycles = 10
         for iCycle in range(0, nCycles):
-            self.lbl_volreflexlivenotes.setText("Calibration Cycle\n{} of {}".format(iCycle, nCycles))
+            self.lbl_volreflexlivenotes.setText("Calibration Cycle\n{} of {}".format(iCycle+1, nCycles))
 
             voltfloor_test = int((voltfloor_low + voltfloor_high)/2)
             voltceil_test = int((voltceil_low + voltceil_high)/2)
@@ -1004,8 +977,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._calFloorSamples = []
         self._calCeilSamples = []
 
-        refSigGen.ChangeVoltWriteFloor(voltfloor_test)
-        refSigGen.ChangeVoltWriteCeil(voltceil_test)
+        refSigGen.ChangeVoltWriteFloor(voltfloor)
+        refSigGen.ChangeVoltWriteCeil(voltceil)
         refSigGen.GenerateCalibrationSignal()
 
         # Calibration signal lasts 1 sec.  First 500ms is floor volt, last 500ms is ceil volt
@@ -1035,8 +1008,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def appendToCalCeilSamples(self, vals):
         self._calCeilSamples.append(vals[referencesignalchannel])
 
-    def startVoluntaryReflexTrail(self):
-        print("trial started")
+    def startVoluntaryReflexTrial(self):
+        global measzero
+        global restQueue
+        global refSigIsZero
+
         #Check Settings
         if (self._serialThread._serIsRunning == False):
             self.lbl_volreflexlivenotes.setText("Reset Serial")
@@ -1069,6 +1045,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Start Writing Process
         self._serialThread.startSdWrite(self._volreflexfilename)
+        self._serialThread.insertValIntoDaqReadings(7, 0)
 
         # Start Rest Phase
         self.lbl_volreflexlivenotes.setText("Rest Phase")
@@ -1077,21 +1054,99 @@ class MainWindow(QtWidgets.QMainWindow):
         QtTest.QTest.qWait(5000) # 5s rest
         self._serialThread.supplyDaqReadings.disconnect()
 
-        zerolevel = np.mean(self.restphasesamples)
-        print(self.restphasesamples)
-        print(zerolevel)
+        # Calculate a measured sig zerolevel. Its the avg of last half of rest phase samples
+        nRestSamples = len(self.restphasesamples)
+        measzero = int(np.mean(self.restphasesamples[int(nRestSamples/2):]))
+
+        # Start trial cycles.  Each cycle will have a 2 sec period where the patient
+        # holds within 10% of 30% MVC range, followed by a random 0-1s pause, followed by a cycle
+        if (refsignaltype == "sine"):
+            refSigGen.ChangeFreq(refsignalfreq)
+        elif (refsignaltype == "step"):
+            steptime = 3.0
+            refSigGen.ChangeStepDuration(steptime)
+        else:
+            self.lbl_volreflexlivenotes.setText("Ref Signal Type Not Sine or Step")
+            return
 
 
+        refSigIsZero = True
+        self._serialThread.supplyDaqReadings.connect(self.updatePlot())
+        restperiod = 2 # seconds
+        restTol = np.abs(refplotrange*0.1)
+        nCycles = 6
+        for iCycle in range(0, nCycles):
+            # Wait until all values in restQueue are within 10% of 30% MVC
+            restQueue = maxrefplotval*np.ones(self._serialThread._serialGetFreq*restperiod)
+            self._serialThread.supplyDaqReadings.connect(self.cycleRestQueue())
+            while True:
+                QtTest.QTest.qWait(1/self._serialThread._serialGetFreq*1000)
+                if not np.any(np.abs(restQueue) > restTol):
+                    self._serialThread.supplyDaqReadings.disconnect(self.cycleRestQueue())
+                    break
+                else:
+                    self.lbl_volreflexlivenotes.setText("Hold 0 +/- {}".format(restTol))
 
+            # Random Pause Between 0 - 1 seconds
+            self.lbl_volreflexlivenotes.setText("Random Pause")
+            randtime = random.uniform(0.0, 1.0)
+            sec2ms = 1000
+            QtTest.QTest.qWait(int(randtime*sec2ms))
+
+
+            # Cycle
+            refSigIsZero = False
+            self._serialThread.insertValIntoDaqReadings(7, iCycle+1) #insert flag
+            if (refsignaltype == "sine"):
+                refSigGen.GenerateUnidirectionFlex()
+                cycletime = 1.0/refsignalfreq
+                QtTest.QTest.qWait(int(cycletime*sec2ms))
+            elif (refsignaltype == "step"):
+                refSigGen.GenerateStep()
+                QtTest.QTest.qWait(int(steptime*sec2ms))
+            refSigIsZero = True
+
+            # Update progressbar
+            progressbarval = round((iCycle + 1)/nCycles*100)
+            self.prog_volreflextrial.setValue(progressbarval)
+            self.prog_volreflextrial.update()
+
+        self._serialThread.supplyDaqReadings.disconnect(self.updatePlot())
+
+    def cycleRestQueue(self, vals):
+        global restQueue
+        restQueue[:-1] = restQueue[1:]
+        restQueue = (vals[measuredsignalchannel]-zerolevel)*serval2torqueNm
 
     def appendToRestPhaseSamples(self, vals):
         self.restphasesamples.append(vals[measuredsignalchannel])
 
 
-    def updateVolReflexPlot(self, measuredval, referenceval, progressbarval):
-        #Update Progressbar
-        self.prog_volreflextrial.setValue(progressbarval)
-        self.prog_volreflextrial.update()
+    def updatePlot(self, vals):
+        # Convert Ref Sig to N-m
+        if (refSigIsZero == True):
+            referenceval = 0
+        else:
+            referenceval = vals[referencesignalchannel]
+            if (refsignaltype == "sine"):
+                if volreflexflexion in ["DF", "DFPF"]:
+                    referenceval = minrefplotval + (referenceval - refrawmin)/refrawspan * refplotrange
+                elif (volreflexflexion == "PF"):
+                    referenceval = maxrefplotval - (referenceval - refrawmin)/refrawspan * refplotrange
+            elif (refsignaltype == "step"):
+                if volreflexflexion ==  "DF":
+                    if referenceval < 2048:
+                        referenceval = minrefplotval
+                    else:
+                        referenceval = maxrefplotval
+                elif volreflexflexion == "PF":
+                    if referenceval < 2048:
+                        referenceval = maxrefplotval
+                    else:
+                        referenceval = minrefplotval
+
+        # Convert Meas Sig to N-m
+        measuredval = (vals[measuredsignalchannel] - measzero) * serval2torqueNm
 
         #Update Plot
         self.reference_line.setData(x=np.array([0,1]),
@@ -1111,8 +1166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_setpatientnumber.clicked.connect(self.setPatientNumber)
         self.btn_resetserial.clicked.connect(self.resetSerialOnThread)
         self.btn_startmvctrial.clicked.connect(self.startMvcTrial)
-        self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrail)
-        # self.btn_startvolreflextrial.clicked.connect(self.tempVrButtonMethod)
+        self.btn_startvolreflextrial.clicked.connect(self.startVoluntaryReflexTrial)
         self.btn_minimize.clicked.connect(self.minimizeWindow)
         self.btn_maximize.clicked.connect(self.maximizeWindow)
         self.btn_close.clicked.connect(self.closeWindow)

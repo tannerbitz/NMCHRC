@@ -14,7 +14,7 @@ baseCmdStr = "http://192.168.0.107/RelayToI2C?Command="
 def GenerateUnidirectionFlex():
     cmd = baseCmdStr + "1"
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -22,7 +22,7 @@ def GenerateUnidirectionFlex():
 def GenerateMultidirectionFlex():
     cmd = baseCmdStr + "2"
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -30,7 +30,7 @@ def GenerateMultidirectionFlex():
 def GenerateUnidirectionWithBounds():
     cmd = baseCmdStr + "3"
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -38,7 +38,7 @@ def GenerateUnidirectionWithBounds():
 def GenerateStep():
     cmd = baseCmdStr + "4"
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -46,7 +46,7 @@ def GenerateStep():
 def GenerateCalibrationSignal():
     cmd = baseCmdStr + "5"
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -54,7 +54,7 @@ def GenerateCalibrationSignal():
 def ChangeFreq(freqInHz):
     cmd = baseCmdStr + "6-{}".format(freqInHz)
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -62,7 +62,7 @@ def ChangeFreq(freqInHz):
 def ChangeStepDuration(timeInSeconds):
     cmd = baseCmdStr + "7-{}".format(timeInSeconds)
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -70,7 +70,7 @@ def ChangeStepDuration(timeInSeconds):
 def ChangeVoltWriteFloor(newFloor):
     cmd = baseCmdStr + "8-{}".format(newFloor)
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0
@@ -78,7 +78,7 @@ def ChangeVoltWriteFloor(newFloor):
 def ChangeVoltWriteCeil(newCeil):
     cmd = baseCmdStr + "9-{}".format(newCeil)
     try:
-        requests.get(cmd, timeout=0.01)
+        requests.get(cmd, timeout=0.05)
         return
     except requests.exceptions.RequestException:
         return 0

@@ -1071,18 +1071,19 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
         refSigIsZero = True
-        self._serialThread.supplyDaqReadings.connect(self.updatePlot())
+        self._serialThread.supplyDaqReadings.connect(self.updatePlot)
         restperiod = 2 # seconds
+        updateGlobalMinMaxRefLevels()
         restTol = np.abs(refplotrange*0.1)
         nCycles = 6
         for iCycle in range(0, nCycles):
             # Wait until all values in restQueue are within 10% of 30% MVC
-            restQueue = maxrefplotval*np.ones(self._serialThread._serialGetFreq*restperiod)
-            self._serialThread.supplyDaqReadings.connect(self.cycleRestQueue())
+            restQueue = maxrefplotval*np.ones(int(self._serialThread._serialGetFreq*restperiod))
+            self._serialThread.supplyDaqReadings.connect(self.cycleRestQueue)
             while True:
                 QtTest.QTest.qWait(1/self._serialThread._serialGetFreq*1000)
                 if not np.any(np.abs(restQueue) > restTol):
-                    self._serialThread.supplyDaqReadings.disconnect(self.cycleRestQueue())
+                    self._serialThread.supplyDaqReadings.disconnect(self.cycleRestQueue)
                     break
                 else:
                     self.lbl_volreflexlivenotes.setText("Hold 0 +/- {}".format(restTol))
@@ -1116,7 +1117,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def cycleRestQueue(self, vals):
         global restQueue
         restQueue[:-1] = restQueue[1:]
-        restQueue = (vals[measuredsignalchannel]-zerolevel)*serval2torqueNm
+        restQueue = (vals[measuredsignalchannel]-measzero)*serval2torqueNm
 
     def appendToRestPhaseSamples(self, vals):
         self.restphasesamples.append(vals[measuredsignalchannel])

@@ -1200,7 +1200,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def cycleRestQueue(self, vals):
         global restQueue
         restQueue[:-1] = restQueue[1:]
-        restQueue = (vals[measuredsignalchannel]-zerolevel)*serval2torqueNm
+        restQueue = (vals[measuredsignalchannel]-measzero)*serval2torqueNm
 
     def appendToRestPhaseSamples(self, vals):
         self.restphasesamples.append(vals[measuredsignalchannel])

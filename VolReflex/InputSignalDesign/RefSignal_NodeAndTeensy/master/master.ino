@@ -6,6 +6,9 @@
 // Webserver 
 ESP8266WebServer server;
 
+//LED Toggle
+bool ledmode = 0;
+
 // Network Info
 char* ssid = "BetterLateThanNever";
 char* password = "PleaseWork";
@@ -16,28 +19,28 @@ IPAddress subnet(255, 255, 255, 0);//set subnet
 // Slave (Teensy) I2C Address
 int i2cSlaveAdd = 15;
 
-// LED PIN 
-int ledpin = 5; // D5
-
 // Relay server argument to i2c string
 void RelayToI2C(){
   String i2cCommand = server.arg("Command");
-  char buff[100];
-  i2cCommand.toCharArray(buff, 100);
-  
-  Wire.beginTransmission(i2cSlaveAdd);
-  Wire.write(buff);
-  Wire.endTransmission();
+  i2cCommand = "<" + i2cCommand + ">";
+  Serial.println(i2cCommand);
+  ledmode = !(ledmode);
+  digitalWrite(LED_BUILTIN, ledmode);
   server.send(200, "");
 }
 
+void Blink(){
+  ledmode = !(ledmode);
+  digitalWrite(LED_BUILTIN, ledmode);
+  server.send(200, "");
+}
 
 void setup() {
   // Turn On Led
-  pinMode(ledpin, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   
   // Start I2C Connection
-  Wire.begin(D1, D2); // D1 = SCL, D2 = SDA
+  Wire.begin(D1, D2); // D5 = SDA, D6 = SCL
 
   // Wifi Setup
   WiFi.config(ip, gateway, subnet);
@@ -52,6 +55,7 @@ void setup() {
   Serial.print("IP Address: ");
   Serial.print(WiFi.localIP());
   server.on("/RelayToI2C", RelayToI2C);
+  server.on("/Blink", Blink);
   server.begin();
 }
 

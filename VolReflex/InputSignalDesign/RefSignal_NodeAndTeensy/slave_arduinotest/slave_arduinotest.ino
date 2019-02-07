@@ -11,11 +11,9 @@
  * do a ADC of 0-5V. To meet this spec, we will boost the 0-3.3V to 0-5V with an op-amp
  */
 
-// For serial reading process
-bool serReading = false;
-bool serDoneReading = false;
-char serInput;
-String serCmd;
+// I2C Slave (this Teensy 3.2)
+#include <Wire.h>
+int i2cSlaveAdd = 15;
 
 // Container to hold commands this gets from NodeMcu over I2C
 char commandStr[50];
@@ -45,7 +43,7 @@ float stepWriteCount; // initialized in setup
 
 
 // tmr
-IntervalTimer tmr;
+// IntervalTimer tmr;
 
 // Commands from I2C
 enum Commands{
@@ -68,7 +66,7 @@ void UnidirectionFlex(){
   voltWrite = min(4095, floor(voltWriteFloor + voltWriteRange/2*(1 -cos(2.0*PI*sineFreq*millis2sec*count))));
 
   if (count > cycleEndWriteCount){
-    tmr.end();
+    // tmr.end();
     count = 0;
     duringCmdSig = false;
   }
@@ -94,7 +92,7 @@ void UnidirectionFlexWithBounds(){
     voltWrite = voltWriteCeil;
     if (count > cycleEndWriteCount + 12)
     {
-      tmr.end();
+      // tmr.end();
       count = 0;    
       duringCmdSig = false;
     }
@@ -107,7 +105,7 @@ void MultidirectionFlex(){
   voltWrite = min(4095, floor(voltWriteFloor + voltWriteRange/2*(1 + sin(2.0*PI*sineFreq*millis2sec*count))));
 
   if (count > cycleEndWriteCount){
-    tmr.end();
+    // tmr.end();
     count = 0;
     duringCmdSig = false;
   }
@@ -119,7 +117,7 @@ void StepSignal(){
   voltWrite = voltWriteCeil;
 
   if (count > stepWriteCount){
-    tmr.end();
+    // tmr.end();
     count = 0;
     duringCmdSig = false;
   }
@@ -136,7 +134,7 @@ void CalibrationSignal(){
     voltWrite = voltWriteCeil;
   }
   else{
-    tmr.end();
+    // tmr.end();
     count = 0;
     duringCmdSig = false;
   }
@@ -166,7 +164,22 @@ void ChangeVoltWriteCeil(int tempVoltCeil){
 }
 
 
-void ParseCommand(){
+void ReceiveMethod(int howMany){
+  // Clear commandStr Char Array
+  memset(commandStr, 0, sizeof(commandStr));
+
+  // Copy i2c string into commandStr char array
+  int ind = 0;
+  while (Wire.available()){
+    commandStr[ind] = Wire.read();
+    ind++;
+  }
+  // Exit if no string was read in
+  if (strlen(commandStr) == 0){
+    Serial.print("Receive Method triggered, but no string received");
+    return;
+  }
+
   // Parse commandStr.  The command number and arguments are seperated by a hyphen
   char * cmdParts[10];
   char * ptr = NULL;
@@ -180,85 +193,85 @@ void ParseCommand(){
     ptr = strtok(NULL, "-");
   }
 
-  // Convert first command argument, which is the command number, to an int
-  int cmd = atoi(cmdParts[0]);
-  count = 0; // necessary for all output signals
-  if (cmd == UNIDIRECTION_FLEX){
-    Serial.println("Unidirection Flex Triggered");
-    tmr.begin(UnidirectionFlex, 1000);
-  }
-  else if (cmd == MULTIDIRECTION_FLEX){
-    Serial.println("Multidirection Flex Triggered");
-    tmr.begin(MultidirectionFlex, 1000);
-  }
-  else if (cmd == UNIDIRECTION_FLEX_WITH_BOUNDS){
-    Serial.println("Uni flex w/ bounds Triggered");
-    tmr.begin(UnidirectionFlexWithBounds, 1000);
-  }
-  else if (cmd == STEP_SIGNAL){
-    Serial.println("Step signal Triggered");
-    tmr.begin(StepSignal, 1000);
-  }
-  else if (cmd == CALIBRATION_SIGNAL){
-    Serial.println("Calibration signal Triggered");
-    tmr.begin(CalibrationSignal, 1000);
-  }
-  else if (cmd == CHANGE_FREQ){
-    Serial.println("Change freq Triggered");
-    float tempFreq = atof(cmdParts[1]); // converts str of freq arg to float. Returns 0.0 on error
-    float tol = 1.0e-8;
-    if (abs(tempFreq - 0.0) > tol){
-      ChangeFreq(tempFreq);
-    }
-  }
-  else if (cmd == CHANGE_STEP_DURATION){
-    Serial.println("Change step duration Triggered");
-    float tempTime = atof(cmdParts[1]); // converts str of freq arg to float. Returns 0.0 on error
-    float tol = 1.0e-8;
-    if (abs(tempTime - 0.0) > tol){
-      ChangeStepDuration(tempTime);
-    }
-  }
-  else if (cmd == CHANGE_VOLT_WRITE_FLOOR){
-    Serial.println("Change volt write floor Triggered");
-    int tempVoltFloor = atoi(cmdParts[1]); // converts str of freq arg to int. Returns 0 on error
-    if (tempVoltFloor > 0){
-      ChangeVoltWriteFloor(tempVoltFloor);
-    }
-    else{
-      String tempStr = String(cmdParts[1]);
-      int i = tempStr.indexOf('0');
-      if ( i == 0){
-        ChangeVoltWriteFloor(0);
-      }
-      else{
-        char errStr[70];
-        sprintf(errStr, "An invalid argument '%s' was given for volt floor argument", cmdParts[1]);
-        Serial.println(errStr);
-      }
-    }
-  }
-  else if (cmd == CHANGE_VOLT_WRITE_CEIL){
-    Serial.println("Change Volt Write Ceil Triggered");
-    int tempVoltCeil = atoi(cmdParts[1]); // converts str of freq arg to int. Returns 0 on error
-    if (tempVoltCeil > 0){
-      ChangeVoltWriteCeil(tempVoltCeil);
-    }
-    else if (strcmp(cmdParts[1], "0")){
-      ChangeVoltWriteCeil(tempVoltCeil);
-    }
-    else{
-      char errStr[70];
-      sprintf(errStr, "An invalid argument '%s' was given for volt ceil argument", cmdParts[1]);
-      Serial.println(errStr);
-    }
-  }
-  else if (cmd == ERROR_CMD){
-    Serial.println("atoi returned 0.  Either a non-numeric char or '0' was sent");
-  }
-  else{
-    Serial.println("The command number you gave does not match anything in Commands enum");
-  }
+//  // Convert first command argument, which is the command number, to an int
+//  int cmd = atoi(cmdParts[0]);
+//  count = 0; // necessary for all output signals
+//  if (cmd == UNIDIRECTION_FLEX){
+//    Serial.println("Unidirection Flex Triggered");
+//    tmr.begin(UnidirectionFlex, 1000);
+//  }
+//  else if (cmd == MULTIDIRECTION_FLEX){
+//    Serial.println("Multidirection Flex Triggered");
+//    tmr.begin(MultidirectionFlex, 1000);
+//  }
+//  else if (cmd == UNIDIRECTION_FLEX_WITH_BOUNDS){
+//    Serial.println("Uni flex w/ bounds Triggered");
+//    tmr.begin(UnidirectionFlexWithBounds, 1000);
+//  }
+//  else if (cmd == STEP_SIGNAL){
+//    Serial.println("Step signal Triggered");
+//    tmr.begin(StepSignal, 1000);
+//  }
+//  else if (cmd == CALIBRATION_SIGNAL){
+//    Serial.println("Calibration signal Triggered");
+//    tmr.begin(CalibrationSignal, 1000);
+//  }
+//  else if (cmd == CHANGE_FREQ){
+//    Serial.println("Change freq Triggered");
+//    float tempFreq = atof(cmdParts[1]); // converts str of freq arg to float. Returns 0.0 on error
+//    float tol = 1.0e-8;
+//    if (abs(tempFreq - 0.0) > tol){
+//      ChangeFreq(tempFreq);
+//    }
+//  }
+//  else if (cmd == CHANGE_STEP_DURATION){
+//    Serial.println("Change step duration Triggered");
+//    float tempTime = atof(cmdParts[1]); // converts str of freq arg to float. Returns 0.0 on error
+//    float tol = 1.0e-8;
+//    if (abs(tempTime - 0.0) > tol){
+//      ChangeStepDuration(tempTime);
+//    }
+//  }
+//  else if (cmd == CHANGE_VOLT_WRITE_FLOOR){
+//    Serial.println("Change volt write floor Triggered");
+//    int tempVoltFloor = atoi(cmdParts[1]); // converts str of freq arg to int. Returns 0 on error
+//    if (tempVoltFloor > 0){
+//      ChangeVoltWriteFloor(tempVoltFloor);
+//    }
+//    else{
+//      String tempStr = String(cmdParts[1]);
+//      int i = tempStr.indexOf('0');
+//      if ( i == 0){
+//        ChangeVoltWriteFloor(0);
+//      }
+//      else{
+//        char errStr[70];
+//        sprintf(errStr, "An invalid argument '%s' was given for volt floor argument", cmdParts[1]);
+//        Serial.println(errStr);
+//      }
+//    }
+//  }
+//  else if (cmd == CHANGE_VOLT_WRITE_CEIL){
+//    Serial.println("Change Volt Write Ceil Triggered");
+//    int tempVoltCeil = atoi(cmdParts[1]); // converts str of freq arg to int. Returns 0 on error
+//    if (tempVoltCeil > 0){
+//      ChangeVoltWriteCeil(tempVoltCeil);
+//    }
+//    else if (strcmp(cmdParts[1], "0")){
+//      ChangeVoltWriteCeil(tempVoltCeil);
+//    }
+//    else{
+//      char errStr[70];
+//      sprintf(errStr, "An invalid argument '%s' was given for volt ceil argument", cmdParts[1]);
+//      Serial.println(errStr);
+//    }
+//  }
+//  else if (cmd == ERROR_CMD){
+//    Serial.println("atoi returned 0.  Either a non-numeric char or '0' was sent");
+//  }
+//  else{
+//    Serial.println("The command number you gave does not match anything in Commands enum");
+//  }
 }
 
 void setup() {
@@ -270,44 +283,22 @@ void setup() {
 
 
   // Analog Output Setup
-  analogWriteResolution(12);
+//  analogWriteResolution(12);
+
+  // I2C Setup  
+  Wire.begin(i2cSlaveAdd);
+  Wire.onReceive(ReceiveMethod);
 
   // Serial setup
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println("Setup done");
-
-  Serial1.begin(115200);
 }
 
 void loop() {
   if (duringCmdSig){
-    analogWrite(A14, voltWrite); 
+//    analogWrite(A14, voltWrite); 
   }
   else{
-    analogWrite(A14, voltWriteFloor);  
-  }
-
-
-  if ( Serial1.available() )
-  {
-    serInput = Serial1.read();
-    if ( serInput == '<' ) {
-      serReading = true;
-    }
-    else if ( serInput == '>'){
-      serReading = false;
-      serDoneReading = true;
-    }
-    else if ( serReading ){
-      serCmd += serInput;
-    }
-  }
-  if ( serDoneReading ){
-    memset(commandStr, 0, sizeof(commandStr));
-    sprintf(commandStr, "%s", serCmd);
-    Serial.println(commandStr);
-    ParseCommand();
-    serCmd = "";
-    serDoneReading = false;
+//    analogWrite(A14, voltWriteFloor);  
   }
 }

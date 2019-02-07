@@ -10,6 +10,11 @@
  * The DAC on the Teensy 3.2 outputs a range of 0-3.3V, but the DAQ is setup to 
  * do a ADC of 0-5V. To meet this spec, we will boost the 0-3.3V to 0-5V with an op-amp
  */
+#include <DueTimer.h>
+#include <Wire.h>
+
+// Global Data
+const uint8_t MCP4725_ADDR = 0x60;
 
 // For serial reading process
 bool serReading = false;
@@ -44,9 +49,6 @@ float stepTLength = 3.0;  //length of time step is on (in seconds)
 float stepWriteCount; // initialized in setup
 
 
-// tmr
-IntervalTimer tmr;
-
 // Commands from I2C
 enum Commands{
   ERROR_CMD = 0,
@@ -68,7 +70,8 @@ void UnidirectionFlex(){
   voltWrite = min(4095, floor(voltWriteFloor + voltWriteRange/2*(1 -cos(2.0*PI*sineFreq*millis2sec*count))));
 
   if (count > cycleEndWriteCount){
-    tmr.end();
+    Timer3.detachInterrupt();;
+    Timer3.stop();
     count = 0;
     duringCmdSig = false;
   }
@@ -94,7 +97,8 @@ void UnidirectionFlexWithBounds(){
     voltWrite = voltWriteCeil;
     if (count > cycleEndWriteCount + 12)
     {
-      tmr.end();
+      Timer3.detachInterrupt();;
+      Timer3.stop();
       count = 0;    
       duringCmdSig = false;
     }
@@ -107,7 +111,8 @@ void MultidirectionFlex(){
   voltWrite = min(4095, floor(voltWriteFloor + voltWriteRange/2*(1 + sin(2.0*PI*sineFreq*millis2sec*count))));
 
   if (count > cycleEndWriteCount){
-    tmr.end();
+    Timer3.detachInterrupt();;
+    Timer3.stop();
     count = 0;
     duringCmdSig = false;
   }
@@ -119,7 +124,8 @@ void StepSignal(){
   voltWrite = voltWriteCeil;
 
   if (count > stepWriteCount){
-    tmr.end();
+    Timer3.detachInterrupt();;
+    Timer3.stop();
     count = 0;
     duringCmdSig = false;
   }
@@ -136,7 +142,8 @@ void CalibrationSignal(){
     voltWrite = voltWriteCeil;
   }
   else{
-    tmr.end();
+    Timer3.detachInterrupt();;
+    Timer3.stop();
     count = 0;
     duringCmdSig = false;
   }
@@ -166,6 +173,7 @@ void ChangeVoltWriteCeil(int tempVoltCeil){
 }
 
 
+
 void ParseCommand(){
   // Parse commandStr.  The command number and arguments are seperated by a hyphen
   char * cmdParts[10];
@@ -185,23 +193,32 @@ void ParseCommand(){
   count = 0; // necessary for all output signals
   if (cmd == UNIDIRECTION_FLEX){
     Serial.println("Unidirection Flex Triggered");
-    tmr.begin(UnidirectionFlex, 1000);
+    Timer3.attachInterrupt(UnidirectionFlex);
+    Timer3.setPeriod(1000); //period = 1000 microseconds = 1000Hz
+    Timer3.start();
   }
   else if (cmd == MULTIDIRECTION_FLEX){
     Serial.println("Multidirection Flex Triggered");
-    tmr.begin(MultidirectionFlex, 1000);
-  }
+    Timer3.attachInterrupt(MultidirectionFlex);
+    Timer3.setPeriod(1000); //period = 1000 microseconds = 1000Hz
+    Timer3.start();  }
   else if (cmd == UNIDIRECTION_FLEX_WITH_BOUNDS){
     Serial.println("Uni flex w/ bounds Triggered");
-    tmr.begin(UnidirectionFlexWithBounds, 1000);
+    Timer3.attachInterrupt(UnidirectionFlexWithBounds);
+    Timer3.setPeriod(1000); //period = 1000 microseconds = 1000Hz
+    Timer3.start();
   }
   else if (cmd == STEP_SIGNAL){
     Serial.println("Step signal Triggered");
-    tmr.begin(StepSignal, 1000);
+    Timer3.attachInterrupt(StepSignal);
+    Timer3.setPeriod(1000); //period = 1000 microseconds = 1000Hz
+    Timer3.start();
   }
   else if (cmd == CALIBRATION_SIGNAL){
     Serial.println("Calibration signal Triggered");
-    tmr.begin(CalibrationSignal, 1000);
+    Timer3.attachInterrupt(CalibrationSignal);
+    Timer3.setPeriod(1000); //period = 1000 microseconds = 1000Hz
+    Timer3.start(); 
   }
   else if (cmd == CHANGE_FREQ){
     Serial.println("Change freq Triggered");
@@ -266,31 +283,40 @@ void setup() {
   // round() function cannot be used outside of functions or macros so setup
   // must occur in the setup() function
   cycleEndWriteCount = round(1/sineFreq*sec2millis);
-  stepWriteCount = round(stepTLength*sec2millis);      //number of times StepSignal will be called before it detaches the tmr
+  stepWriteCount = round(stepTLength*sec2millis);      //number of times StepSignal will be called before it detaches the Timer3
 
-
-  // Analog Output Setup
-  analogWriteResolution(12);
+  Wire.begin();
+//
+//  // Analog Output Setup
+//  analogWriteResolution(12);
 
   // Serial setup
   Serial.begin(115200);
   Serial.println("Setup done");
-
   Serial1.begin(115200);
 }
 
 void loop() {
   if (duringCmdSig){
-    analogWrite(A14, voltWrite); 
+    Wire.beginTransmission(MCP4725_ADDR);
+    Wire.write(0x40);
+    Wire.write(voltWrite >> 4);
+    Wire.write((voltWrite & 15) << 4);
+    Wire.endTransmission();
+//    analogWrite(DAC0, voltWrite); 
   }
   else{
-    analogWrite(A14, voltWriteFloor);  
+    Wire.beginTransmission(MCP4725_ADDR);
+    Wire.write(0x40);
+    Wire.write(voltWriteFloor >> 4);
+    Wire.write((voltWriteFloor & 15) << 4);
+    Wire.endTransmission();    
+//    analogWrite(DAC0, voltWriteFloor);  
   }
-
-
-  if ( Serial1.available() )
-  {
+  
+  if (Serial1.available() > 0){
     serInput = Serial1.read();
+    Serial.println(serInput);
     if ( serInput == '<' ) {
       serReading = true;
     }
@@ -304,7 +330,7 @@ void loop() {
   }
   if ( serDoneReading ){
     memset(commandStr, 0, sizeof(commandStr));
-    sprintf(commandStr, "%s", serCmd);
+    serCmd.toCharArray(commandStr, 50);
     Serial.println(commandStr);
     ParseCommand();
     serCmd = "";

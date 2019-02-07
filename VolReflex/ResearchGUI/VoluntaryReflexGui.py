@@ -382,7 +382,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if (self._serialThread is None):
                 self._serialThread = SerialThread()
                 self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
-                self._serialThread.supplyDaqReadings.conect(self.putInSerialQueue)
+                self._serialThread.supplyDaqReadings.connect(self.putInSerialQueue)
             self._serialThread.resetSerial(self._daqport, serialbaudrate, serialtimeout)
 
     def putInSerialQueue(self, vals):
@@ -1003,8 +1003,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def startVoluntaryReflexTrial(self):
         global measzero
-        global restQueue
-        global refSigIsZero
 
         #Check Settings
         if (self._serialThread._serIsRunning == False):
@@ -1091,7 +1089,7 @@ class MainWindow(QtWidgets.QMainWindow):
             data = np.array(serialQueue.queue)
             refdata = 0
             measdata = (data[:,measuredsignalchannel] - measzero)*serval2torqueNm
-            holdtol = np.abs(referencevalspan*0.1)
+            holdtol = np.abs(refsignalspan*0.1)
             holdsuccess = not np.any(np.abs(measdata) > holdtol)
 
             if holdsuccess:
@@ -1123,7 +1121,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             timecycle = 1/refsignalfreq
             self.cmdsigcount = 0
-            self.cmdsigcountend = int(timecycle*self.vrtimefreq)
+            self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
             self.cmdsigtimer.start()
             self.randtimer.stop()
 
@@ -1208,29 +1206,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def updatePlot(self, refdata, measdata, refsigiszero):
         # Convert Ref Sig to N-m
-        if (refSigIsZero == True):
+        if (refsigiszero == True):
             referenceval = 0
         else:
             referenceval = refdata
             if refsignaltype == "sine":
                 if volreflexflexion in ["DF", "DFPF"]:
-                    referenceval = minreferenceval + ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    referenceval = refsignalmin + ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
                 elif volreflexflexion == "PF":
-                    referenceval = maxreferenceval - ((referenceval - refrawmin)/refrawspan)*referencevalspan  # this assumes A/D measurements from the 12-bit DAQ
+                    referenceval = refsignalmax - ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
             elif refsignaltype == "step":
                 if volreflexflexion ==  "DF":
                     if referenceval < 2048:
-                        referenceval = minreferenceval
+                        referenceval = refsignalmin
                     else:
-                        referenceval = maxreferenceval
+                        referenceval = refsignalmax
                 elif volreflexflexion == "PF":
                     if referenceval < 2048:
-                        referenceval = maxreferenceval
+                        referenceval = refsignalmax
                     else:
-                        referenceval = minreferenceval
+                        referenceval = refsignalmin
 
         # Convert Meas Sig to N-m
         measuredval = (measdata - measzero) * serval2torqueNm
+        if (measuredval > topborder):
+            measuredval = topborder
+        elif (measuredval < bottomborder):
+            measuredval = bottomborder
 
         #Update Plot
         self.reference_line.setData(x=np.array([0,1]),

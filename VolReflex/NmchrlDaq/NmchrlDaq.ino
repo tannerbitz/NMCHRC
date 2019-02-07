@@ -233,7 +233,7 @@ void printI2CDeviceSettings(){
   for (int i=0; i<8; i++){
     voltRangeStr = getVoltageRangeStr(i2cDevs[i].voltageRange);
     sprintf(i2cSettings,
-            "<Channel: %i,DevAddr: %#x,CntrlByte: %i,UseCntrlByte: %s, VoltRng: %s>",
+            "<3,Channel: %i,DevAddr: %#x,CntrlByte: %i,UseCntrlByte: %s, VoltRng: %s>",
             i,
             i2cDevs[i].deviceAddress,
             i2cDevs[i].controlByte,
@@ -298,7 +298,7 @@ void printDaqReadings(){
    * Print Comma Delimited DAQ Readings to Serial
    */
   sprintf(daqReadingsSerialStr,
-          "<%d,%d,%d,%d,%d,%d,%d,%d>",
+          "<1,%d,%d,%d,%d,%d,%d,%d,%d>",
           daqReadings[0],
           daqReadings[1],
           daqReadings[2],
@@ -508,27 +508,27 @@ void startSdWrite(char * serLine){
 
   // Setup the sd card
   if(!sdEx.begin()){
-    Serial.print("<Something went wrong with sdEx.begin()>");
+    Serial.print("<0,Something went wrong with sdEx.begin()>");
     return;
   }
   sdEx.chvol();
 
   // Create/write to the file
   if (!file.open(fname, O_WRITE|O_CREAT|O_AT_END)){
-    Serial.print("<Something went wrong opening the file>");
+    Serial.print("<0,Something went wrong opening the file>");
     return;
   }
 
   // Change the 'Created' and 'Modified' and 'Accessed' timestamps of the file
   if (writeTimestampFlag){
     if (!file.timestamp(T_CREATE, fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond)){
-      Serial.print("<Something went wrong with the 'Modified' timestamp>");
+      Serial.print("<0,Something went wrong with the 'Modified' timestamp>");
     }
     if (!file.timestamp(T_WRITE, fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond)){
-      Serial.print("<Something went wrong with the 'Modified' timestamp>");
+      Serial.print("<0,Something went wrong with the 'Modified' timestamp>");
     }
     if (!file.timestamp(T_ACCESS, fileYear, fileMonth, fileDay, fileHour, fileMinute, fileSecond)){
-      Serial.print("<Something went wrong with the 'Modified' timestamp>");
+      Serial.print("<0,Something went wrong with the 'Modified' timestamp>");
     }
   }
 
@@ -580,10 +580,10 @@ void ParseSerialInput(){
   }
   else if ( cmd == IS_SDCARD_INSERTED ){
     if(!sdEx.begin()){
-      Serial.print("<False>");
+      Serial.print("<2,False>");
     }
     else{
-      Serial.print("<True>");
+      Serial.print("<2,True>");
     }
   }
   delete serLine;

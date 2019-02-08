@@ -302,20 +302,6 @@ class SerialThread(QThread):
         bCmdStr = str.encode("<8>", 'utf-8')
         try:
             self._ser.write(bCmdStr)
-            endtime = time.time() + 0.5
-            serialstring = ""
-            while (time.time() < endtime):
-                newchar = self._ser.read().decode()
-                serialstring += newchar
-                if (newchar == '>'):
-                    break
-            serialstring = serialstring.strip('<>')
-            if (serialstring == "True"):
-                return True
-            elif (serialstring == "False"):
-                return False
-            else:
-                self.supplyMessage.emit("Unexpected value received during isSDCardInserted method")
         except (OSError, serial.SerialException):
             self._serialTimer.stop()
             self._serIsRunning = False

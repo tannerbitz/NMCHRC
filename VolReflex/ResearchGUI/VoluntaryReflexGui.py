@@ -444,7 +444,6 @@ class MainWindow(QtWidgets.QMainWindow):
             serialQueue.put(vals)
         else:
             serialQueue.put(vals)
-        print(vals)
 
     def printToTerminal(self, vals):
         print(vals)
@@ -951,11 +950,11 @@ class MainWindow(QtWidgets.QMainWindow):
         QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
-        self._serialThread.supplyDaqReadings.disconnect()
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToCalFloorSamples)
         QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
-        self._serialThread.supplyDaqReadings.disconnect()
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToCalCeilSamples)
 
         voltfloorsamples_low = self._calFloorSamples
         voltceilsamples_high = self._calCeilSamples
@@ -979,11 +978,11 @@ class MainWindow(QtWidgets.QMainWindow):
             QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
             self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
             QtTest.QTest.qWait(250)
-            self._serialThread.supplyDaqReadings.disconnect()
+            self._serialThread.supplyDaqReadings.disconnect(self.appendToCalFloorSamples)
             QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
             self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
             QtTest.QTest.qWait(250)
-            self._serialThread.supplyDaqReadings.disconnect()
+            self._serialThread.supplyDaqReadings.disconnect(self.appendToCalCeilSamples)
 
             voltfloorsamples_test = self._calFloorSamples
             voltceilsamples_test = self._calCeilSamples
@@ -1031,11 +1030,11 @@ class MainWindow(QtWidgets.QMainWindow):
         QtTest.QTest.qWait(125) #From 125ms - 375ms collect floor samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalFloorSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
-        self._serialThread.supplyDaqReadings.disconnect()
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToCalFloorSamples)
         QtTest.QTest.qWait(250) #From 625ms - 875ms collect ceil samples
         self._serialThread.supplyDaqReadings.connect(self.appendToCalCeilSamples) #this slot appends ref sig readings to a list
         QtTest.QTest.qWait(250)
-        self._serialThread.supplyDaqReadings.disconnect()
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToCalCeilSamples)
 
         refrawmin = np.min(self._calFloorSamples)
         refrawmax = np.max(self._calCeilSamples)
@@ -1103,7 +1102,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.restphasesamples = []
         self._serialThread.supplyDaqReadings.connect(self.appendToRestPhaseSamples)
         QtTest.QTest.qWait(5000) # 5s rest
-        self._serialThread.supplyDaqReadings.disconnect()
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToRestPhaseSamples)
 
         # Calculate a measured sig zerolevel. Its the avg of last half of rest phase samples
         nRestSamples = len(self.restphasesamples)
@@ -1211,54 +1210,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 
-    #############################################################################
-        # refSigIsZero = True
-        # self._serialThread.supplyDaqReadings.connect(self.updatePlot())
-        # restperiod = 2 # seconds
-        # restTol = np.abs(refplotrange*0.1)
-        # nCycles = 6
-        # for iCycle in range(0, nCycles):
-        #     # Wait until all values in restQueue are within 10% of 30% MVC
-        #     restQueue = maxrefplotval*np.ones(self._serialThread._serialTimerFreq*restperiod)
-        #     self._serialThread.supplyDaqReadings.connect(self.cycleRestQueue())
-        #     while True:
-        #         QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*1000)
-        #         if not np.any(np.abs(restQueue) > restTol):
-        #             self._serialThread.supplyDaqReadings.disconnect(self.cycleRestQueue())
-        #             break
-        #         else:
-        #             self.lbl_volreflexlivenotes.setText("Hold 0 +/- {}".format(restTol))
-        #
-        #     # Random Pause Between 0 - 1 seconds
-        #     self.lbl_volreflexlivenotes.setText("Random Pause")
-        #     randtime = random.uniform(0.0, 1.0)
-        #     sec2ms = 1000
-        #     QtTest.QTest.qWait(int(randtime*sec2ms))
-        #
-        #
-        #     # Cycle
-        #     refSigIsZero = False
-        #     self._serialThread.insertValIntoDaqReadings(7, iCycle+1) #insert flag
-        #     if (refsignaltype == "sine"):
-        #         refSigGen.GenerateUnidirectionFlex()
-        #         cycletime = 1.0/refsignalfreq
-        #         QtTest.QTest.qWait(int(cycletime*sec2ms))
-        #     elif (refsignaltype == "step"):
-        #         refSigGen.GenerateStep()
-        #         QtTest.QTest.qWait(int(steptime*sec2ms))
-        #     refSigIsZero = True
-        #
-        #     # Update progressbar
-        #     progressbarval = round((iCycle + 1)/nCycles*100)
-        #     self.prog_volreflextrial.setValue(progressbarval)
-        #     self.prog_volreflextrial.update()
-        #
-        # self._serialThread.supplyDaqReadings.disconnect(self.updatePlot())
-
-    def cycleRestQueue(self, vals):
-        global restQueue
-        restQueue[:-1] = restQueue[1:]
-        restQueue = (vals[measuredsignalchannel]-measzero)*serval2torqueNm
 
     def appendToRestPhaseSamples(self, vals):
         self.restphasesamples.append(vals[measuredsignalchannel])
@@ -1408,6 +1359,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tablewidget_mvc.setItem(0, 1, QTableWidgetItem(str(round(mvctable['df'],2))))
         self.setDfPfMvc()
 
+    def redoVrTabSettings(self):
+        btnid = self.trialsettingsbtngroup.checkedId()
+        btn = self.trialsettingsbtngroup.button(btnid)
+        if (btn == self.rbtn_autotrial):
+            self.setAutoTrial()
+            self.setAutoTrialManualButtons()
+
+
     def startSettingsTab(self):
 
         # Complete GUI Programming
@@ -1425,6 +1384,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set Auto Trial Buttons as default
         self.setDefaultAutoTrial()
 
+        self.tabWidget.currentChanged.connect(self.redoVrTabSettings)
 
 
 if __name__ == '__main__':

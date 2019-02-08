@@ -1179,6 +1179,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.updatePlot(refdata, measdata, refdataiszero)
         else:
             timecycle = 1/refsignalfreq
+            refSigGen.GenerateUnidirectionFlex()
             self.cmdsigcount = 0
             self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
             self.cmdsigtimer.start()
@@ -1206,7 +1207,7 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 self.cmdsigtimer.stop()
                 self.lbl_volreflexlivenotes.setText("Done")
-                self.updatePlot(0, 0, True)
+                self.updatePlot(0, measzero, True)
 
 
 

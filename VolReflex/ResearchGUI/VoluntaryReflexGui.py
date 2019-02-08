@@ -86,6 +86,11 @@ class SerialThread(QThread):
                    'NEG_FIVE_TO_FIVE':1,
                    'ZERO_TO_TEN':2,
                    'NEG_TEN_TO_TEN':3}
+    _serialstring = ""
+    _recordstring = False
+    _serialstringdone = False
+    _serialstringstoprocess = queue.Queue()
+    _sdInserted = False
 
     def __init__(self):
         QThread.__init__(self)
@@ -94,8 +99,11 @@ class SerialThread(QThread):
             self._serialTimer = QtCore.QTimer()
             self._serialGetFreq = 180.0
             self._serialTimer.setInterval(1.0/self._serialGetFreq*1000.0)
-            self._serialTimer.timeout.connect(self.getDaqReadings)
-        except:
+            self._serialTimer.timeout.connect(self.readFromDaq)
+            self._serialTimer.timeout.connect(self.callForDaqReadings)
+            self._
+        except Exception as e:
+            print(e)
             self.supplyMessage.emit("Error Occured During Timer Setup")
 
     def resetSerial(self, serialPort, serialBaudrate, serialTimeout):
@@ -106,7 +114,8 @@ class SerialThread(QThread):
         if isinstance(self._ser, serial.Serial):
             try:
                 self._ser.close()
-            except:
+            except Exception as e:
+                print(e)
                 self.supplyMessage.emit("Closing Serial Caused an Error")
 
         # Reconnect serial
@@ -117,40 +126,116 @@ class SerialThread(QThread):
         except serial.SerialException as e:
             self.supplyMessage.emit("Serial Exception Occured")
             self._serIsRunning = False
-        except:
+        except Exception as e:
+            print(e)
             self.supplyMessage.emit("Something Bad Happened")
             self._serIsRunning = False
+            #clear buffer if anything
 
         # Restart Serial Timer
         if (self._serIsRunning):
             self._serialTimer.start()
 
-    def getDaqReadings(self):
+    def readFromDaq(self):
         try:
-            self._ser.write(b'<2>')
-            endtime = time.time() + 0.5
-            serialstring = ""
-            while (time.time() < endtime):
-                newchar = self._ser.read().decode()
-                serialstring += newchar
-                if (newchar == '>'):
-                    break
-            serialstring = serialstring.strip('<>')
-            vals = serialstring.split(',')
-            vals = list(map(lambda x: int(x), vals)) # convert str to int
-            if (len(vals) == 8):
-                self.supplyDaqReadings.emit(vals)
-            else:
-                self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
+            #check for err messages that arrived since last data call
+            if self._ser.in_waiting:
+                while self._ser.in_waiting:
+                    temp = self._ser.read().decode()
+                    if (temp == ">"):
+                        self._recordstring = False
+                        self._serialstringdone = True
+
+                    if (self._recordstring):  # if between "<" and ">", read string
+                        self._serialstring += temp
+
+                    if (temp == "<"):
+                        self._recordstring = True
+
+                    if (self._serialstringdone):
+                        self._serialstringdone = False
+                        self._serialstringstoprocess.put(self._serialstring)
+                        self._serialstring = ""
+                        self.handleSerialStrings()
+
         except (OSError, serial.SerialException):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
             self.supplyMessage.emit(errStr)
+
+    def callForDaqReadings(self):
+        try:
+            self._ser.write(b'<2>')
+        except (OSError, serial.SerialException):
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
+        except Exception as e:
+            print(e)
+            self._serialTimer.stop()
+            self._serIsRunning = False
+            errStr = "Failure With DAQ\nCycle Power To DAQ"
+            self.supplyMessage.emit(errStr)
+
+    def handleSerialStrings(self):
+        try:
+            while (not self._serialstringstoprocess.empty()):
+                temp = self._serialstringstoprocess.get()
+                print(temp)
+                # temparr = temp.split(",")
+                # cmd = int(temparr[0])
+                # if (cmd == 0): #Err Message
+                #     self.supplyMessage.emit("Error Msg: {}".format(temparr[1]))
+                # elif (cmd == 1):  #DAQ Readings
+                #     vals = list(map(lambda x: int(x), temparr[1:]))
+                #     self.supplyDaqReadings.emit(vals)
+                # elif (cmd == 2): # Is SD Inserted Response
+                #     if temparr[1] == "True":
+                #         self._sdInserted = True
+                #     elif temparr[1] == "False":
+                #         self._sdInserted = False
+                #     else:
+                #         print("sd inserted gave unexpected result: {}".format(temparr[1:]))
+                # elif (cmd == 3): #I2C device settings response
+                #     print(temparr[1:])
+                # else:
+                #     print("Unexpected first command while handling serial string")
+                #     print("cmd: {}".format(temparr[0]))
+                #     print("The rest of serial string: {}".format(temparr[1:]))
+        except Exception as e:
+            print(e)
+
+            # if (commacount == 7): # This would be a left over DAQ reading
+            #     temparr = temp.split(',')
+            #     vals = list(map(lambda x: int(x), temparr))
+            #     self.supplyDaqReadings.emit(vals)
+            # else:  # This should be an error message from the DAQ
+            #     self.supplyMessage.emit(temp)
+            #
+            # # call for DAQ reading
+            # self._ser.write(b'<2>')
+            # endtime = time.time() + 0.5
+            # serialstring = ""
+            # while (time.time() < endtime):
+            #     newchar = self._ser.read().decode()
+            #     serialstring += newchar
+            #     if (newchar == '>'):
+            #         break
+            # serialstring = serialstring.strip('<>')
+            # vals = serialstring.split(',')
+            # if (len(vals) == 8):
+            #     vals = list(map(lambda x: int(x), vals))  # convert str to int
+            #     self.supplyDaqReadings.emit(vals)
+            # else:
+            #     self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
+
+
 
     def startSdWrite(self, filename):
         # DAQ Command to Start a Write is <0,filename,YEAR,MONTH,DAY,HOUR,MINUTE,SECOND>
@@ -163,7 +248,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -178,7 +264,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -195,7 +282,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -211,7 +299,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -226,7 +315,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -255,7 +345,8 @@ class SerialThread(QThread):
             self._serialTimer.stop()
             self._serIsRunning = False
             self.supplyMessage.emit("Serial Input/Output Error Occured\nReset Serial")
-        except:
+        except Exception as e:
+            print(e)
             self._serialTimer.stop()
             self._serIsRunning = False
             errStr = "Failure With DAQ\nCycle Power To DAQ"
@@ -392,6 +483,7 @@ class MainWindow(QtWidgets.QMainWindow):
             serialQueue.put(vals)
         else:
             serialQueue.put(vals)
+        print(vals)
 
     def printToTerminal(self, vals):
         print(vals)

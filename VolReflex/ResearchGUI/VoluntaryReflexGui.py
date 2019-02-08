@@ -48,7 +48,6 @@ volreflexflexion = None
 refsignaltype = None
 refsignalfreq = None
 serialvals = None
-calibrationReferenceMeasurements = []
 refrawmax = None
 refrawmin = None
 refrawspan = None
@@ -97,8 +96,8 @@ class SerialThread(QThread):
         try:
             # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
-            self._serialGetFreq = 180.0
-            self._serialTimer.setInterval(1.0/self._serialGetFreq*1000.0)
+            self._serialTimerFreq = 180.0
+            self._serialTimer.setInterval(1.0/self._serialTimerFreq*1000.0)
             self._serialTimer.timeout.connect(self.readFromDaq)
             self._serialTimer.timeout.connect(self.callForDaqReadings)
             self._
@@ -187,53 +186,29 @@ class SerialThread(QThread):
         try:
             while (not self._serialstringstoprocess.empty()):
                 temp = self._serialstringstoprocess.get()
-                print(temp)
-                # temparr = temp.split(",")
-                # cmd = int(temparr[0])
-                # if (cmd == 0): #Err Message
-                #     self.supplyMessage.emit("Error Msg: {}".format(temparr[1]))
-                # elif (cmd == 1):  #DAQ Readings
-                #     vals = list(map(lambda x: int(x), temparr[1:]))
-                #     self.supplyDaqReadings.emit(vals)
-                # elif (cmd == 2): # Is SD Inserted Response
-                #     if temparr[1] == "True":
-                #         self._sdInserted = True
-                #     elif temparr[1] == "False":
-                #         self._sdInserted = False
-                #     else:
-                #         print("sd inserted gave unexpected result: {}".format(temparr[1:]))
-                # elif (cmd == 3): #I2C device settings response
-                #     print(temparr[1:])
-                # else:
-                #     print("Unexpected first command while handling serial string")
-                #     print("cmd: {}".format(temparr[0]))
-                #     print("The rest of serial string: {}".format(temparr[1:]))
+                temparr = temp.split(",")
+                cmd = int(temparr[0])
+                if (cmd == 0): #Err Message
+                    self.supplyMessage.emit("Error Msg: {}".format(temparr[1]))
+                elif (cmd == 1):  #DAQ Readings
+                    vals = list(map(lambda x: int(x), temparr[1:]))
+                    self.supplyDaqReadings.emit(vals)
+                elif (cmd == 2): # Is SD Inserted Response
+                    if temparr[1] == "True":
+                        self._sdInserted = True
+                    elif temparr[1] == "False":
+                        self._sdInserted = False
+                    else:
+                        print("sd inserted gave unexpected result: {}".format(temparr[1:]))
+                elif (cmd == 3): #I2C device settings response
+                    print(temparr[1:])
+                else:
+                    print("Unexpected first command while handling serial string")
+                    print("cmd: {}".format(temparr[0]))
+                    print("The rest of serial string: {}".format(temparr[1:]))
         except Exception as e:
             print(e)
 
-            # if (commacount == 7): # This would be a left over DAQ reading
-            #     temparr = temp.split(',')
-            #     vals = list(map(lambda x: int(x), temparr))
-            #     self.supplyDaqReadings.emit(vals)
-            # else:  # This should be an error message from the DAQ
-            #     self.supplyMessage.emit(temp)
-            #
-            # # call for DAQ reading
-            # self._ser.write(b'<2>')
-            # endtime = time.time() + 0.5
-            # serialstring = ""
-            # while (time.time() < endtime):
-            #     newchar = self._ser.read().decode()
-            #     serialstring += newchar
-            #     if (newchar == '>'):
-            #         break
-            # serialstring = serialstring.strip('<>')
-            # vals = serialstring.split(',')
-            # if (len(vals) == 8):
-            #     vals = list(map(lambda x: int(x), vals))  # convert str to int
-            #     self.supplyDaqReadings.emit(vals)
-            # else:
-            #     self.supplyMessage.emit("Serial Vals Requested. \nReceived: {}".format(serialstring))
 
 
 
@@ -1127,7 +1102,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self._serialThread.changeVoltageRange(referencesignalchannel, self._serialThread._voltRanges['ZERO_TO_FIVE'])
 
         # Start Writing Process
-        self._serialThread.startSdWrite(self._volreflexfilename)
+        self._serialThread.isSDCardInserted()
+        QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*4*1000);
+        if (self._serialThread._sdInserted == True):
+            self._serialThread.startSdWrite(self._volreflexfilename)
+            print("SD Card Inserted")
+        else:
+            self.lbl_volreflexlivenotes.setText("SD Card Not Inserted")
+            return
         self._serialThread.insertValIntoDaqReadings(7, 0)
 
         # Start Rest Phase
@@ -1251,10 +1233,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # nCycles = 6
         # for iCycle in range(0, nCycles):
         #     # Wait until all values in restQueue are within 10% of 30% MVC
-        #     restQueue = maxrefplotval*np.ones(self._serialThread._serialGetFreq*restperiod)
+        #     restQueue = maxrefplotval*np.ones(self._serialThread._serialTimerFreq*restperiod)
         #     self._serialThread.supplyDaqReadings.connect(self.cycleRestQueue())
         #     while True:
-        #         QtTest.QTest.qWait(1/self._serialThread._serialGetFreq*1000)
+        #         QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*1000)
         #         if not np.any(np.abs(restQueue) > restTol):
         #             self._serialThread.supplyDaqReadings.disconnect(self.cycleRestQueue())
         #             break

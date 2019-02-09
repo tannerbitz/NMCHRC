@@ -100,7 +100,6 @@ class SerialThread(QThread):
             self._serialTimer.setInterval(1.0/self._serialTimerFreq*1000.0)
             self._serialTimer.timeout.connect(self.readFromDaq)
             self._serialTimer.timeout.connect(self.callForDaqReadings)
-            self._
         except Exception as e:
             print(e)
             self.supplyMessage.emit("Error Occured During Timer Setup")
@@ -480,7 +479,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_mvctriallivenotes.setText("Connect Serial Before Proceeding")
             return
 
-        if (self._serialThread.isSDCardInserted() == False):
+        self._serialThread.isSDCardInserted()
+        QtTest.QTest.qWait(1/self._serialThread.vrtimerfreq*5*1000)
+        if (self._serialThread._sdInserted == False):
             self.lbl_mvctriallivenotes.setText("Insert SD Card")
             return
 

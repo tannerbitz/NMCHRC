@@ -156,6 +156,7 @@ class SerialThread(QThread):
                         self._serialstring = ""
                         self.handleSerialStrings()
 
+
         except (OSError, serial.SerialException):
             self._serialTimer.stop()
             self._serIsRunning = False
@@ -1089,7 +1090,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Start Writing Process
         self._serialThread.isSDCardInserted()
-        QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*4*1000);
+        QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*10*1000);
         if (self._serialThread._sdInserted == True):
             self._serialThread.startSdWrite(self._volreflexfilename)
             print("SD Card Inserted")
@@ -1162,7 +1163,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.lbl_volreflexlivenotes.setText(holdtimestr)
             self.updatePlot(refdata, np.mean(data[:, measuredsignalchannel]), True)
         else:
-            self.randtime = random.uniform(0.5, 1.5)
+            self.randtime = random.uniform(2, 3)
             self.randcountend = int(self.vrtimerfreq*self.randtime)
             self.randcount = 0
             self.randtimer.start()
@@ -1207,6 +1208,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.cmdsigtimer.stop()
             else:
                 self.cmdsigtimer.stop()
+                self._serialThread.stopSdWrite()
                 self.lbl_volreflexlivenotes.setText("Done")
                 self.updatePlot(0, measzero, True)
 

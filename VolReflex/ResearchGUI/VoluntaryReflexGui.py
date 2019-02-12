@@ -52,8 +52,14 @@ refrawmax = None
 refrawmin = None
 refrawspan = None
 calibrationCompleteFlag = False
-serialQueue = queue.Queue(maxsize=3) #getting data at 180hz into queue, pulling at 60hz
 
+# Live Data Filter
+filterOrder, filterWn = signal.buttord(wp=1/9, ws=3/9, gpass=1, gstop=20, analog=False)
+filterNum, filterDen = signal.butter(filterOrder, filterWn, btype='lowpass', analog=False, output='ba')
+refdata_live_unfiltered = np.zeros([1,filterOrder+1]).flatten()
+refdata_live_filtered = np.zeros([1,filterOrder+1]).flatten()
+measdata_live_unfiltered = np.zeros([1,filterOrder+1]).flatten()
+measdata_live_filtered = np.zeros([1,filterOrder+1]).flatten()
 
 
 # Populate dictionary for automatic trials
@@ -193,6 +199,10 @@ class SerialThread(QThread):
             self.supplyMessage.emit(errStr)
 
     def handleSerialStrings(self):
+        global refdata_live_filtered
+        global refdata_live_unfiltered
+        global measdata_live_filtered
+        global measdata_live_unfiltered
         try:
             while (not self._serialstringstoprocess.empty()):
                 temp = self._serialstringstoprocess.get()
@@ -202,6 +212,18 @@ class SerialThread(QThread):
                     self.supplyMessage.emit("Error Msg: {}".format(temparr[1]))
                 elif (cmd == 1):  #DAQ Readings
                     vals = list(map(lambda x: int(x), temparr[1:]))
+                    if (referencesignalchannel is not None):
+                        # Filter reference signal data
+                        refdata_live_unfiltered[1:] = refdata_live_unfiltered[0:-1]
+                        refdata_live_filtered[1:] = refdata_live_filtered[0:-1]
+                        refdata_live_unfiltered[0] = vals[referencesignalchannel]
+                        refdata_live_filtered[0] = (filterNum.dot(refdata_live_unfiltered) - filterDen[1:].dot(refdata_live_filtered[1:]))/filterDen[0]
+                    if (measuredsignalchannel is not None):
+                        # Filter measured signal data
+                        measdata_live_unfiltered[1:] = measdata_live_unfiltered[0:-1]
+                        measdata_live_filtered[1:] = measdata_live_filtered[0:-1]
+                        measdata_live_unfiltered[0] = vals[measuredsignalchannel]
+                        measdata_live_filtered[0] = (filterNum.dot(measdata_live_unfiltered) - filterDen[1:].dot(measdata_live_filtered[1:]))/filterDen[0]
                     self.supplyDaqReadings.emit(vals)
                 elif (cmd == 2): # Is SD Inserted Response
                     if temparr[1] == "True":
@@ -444,16 +466,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if (self._serialThread is None):
                 self._serialThread = SerialThread()
                 self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
-                self._serialThread.supplyDaqReadings.connect(self.putInSerialQueue)
             self._serialThread.resetSerial(self._daqport, serialbaudrate, serialtimeout)
 
-    def putInSerialQueue(self, vals):
-        global serialQueue
-        if (serialQueue.full()):
-            serialQueue.get()
-            serialQueue.put(vals)
-        else:
-            serialQueue.put(vals)
 
     def printToTerminal(self, vals):
         print(vals)
@@ -1048,8 +1062,8 @@ class MainWindow(QtWidgets.QMainWindow):
         QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect(self.appendToCalCeilSamples)
 
-        refrawmin = np.mean(self._calFloorSamples)
-        refrawmax = np.mean(self._calCeilSamples)
+        refrawmin = int(np.mean(self._calFloorSamples))
+        refrawmax = int(np.mean(self._calCeilSamples))
         refrawspan = abs(refrawmax - refrawmin)
 
         calibrationCompleteFlag = True
@@ -1157,11 +1171,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def vrholdtimerfun(self):
         if (self.holdcount < self.holdcountend):
             # Copy data from queue
-            data = np.array(serialQueue.queue)
             refdata = 0
-            measdata = (data[:,measuredsignalchannel] - measzero)*serval2torqueNm
+            measdata = copy.copy(measdata_live_filtered[0])
+            measdata_nm = (measdata - measzero)*serval2torqueNm
             holdtol = np.abs(refsignalspan*0.1)
-            holdsuccess = not np.any(np.abs(measdata) > holdtol)
+            holdsuccess = (np.abs(measdata_nm) < holdtol)
 
             if holdsuccess:
                 self.holdcount = self.holdcount + 1
@@ -1171,7 +1185,7 @@ class MainWindow(QtWidgets.QMainWindow):
             holdtimeremaining = self.holdtime*(1- (self.holdcount + 1)/self.holdcountend)
             holdtimestr = "Hold at 0\nTime Remaining: {:2.1f}".format(holdtimeremaining)
             self.lbl_volreflexlivenotes.setText(holdtimestr)
-            self.updatePlot(refdata, np.mean(data[:, measuredsignalchannel]), True)
+            self.updatePlot(refdata, measdata, True)
         else:
             self.randtime = random.uniform(2, 3)
             self.randcountend = int(self.vrtimerfreq*self.randtime)
@@ -1184,9 +1198,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.randcount = self.randcount + 1
             self.lbl_volreflexlivenotes.setText("Random Hold")
 
-            data = np.array(serialQueue.queue)
             refdata = 0
-            measdata = np.mean(data[:, measuredsignalchannel])
+            measdata = copy.copy(measdata_live_filtered[0])
             refdataiszero = True
             self.updatePlot(refdata, measdata, refdataiszero)
         else:
@@ -1203,9 +1216,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cmdsigcount = self.cmdsigcount + 1
             self.lbl_volreflexlivenotes.setText("Match Reference Line")
 
-            data = np.array(serialQueue.queue)
-            refdata = np.mean(data[:, referencesignalchannel])
-            measdata = np.mean(data[:, measuredsignalchannel])
+            refdata = copy.copy(refdata_live_filtered[0])
+            measdata = copy.copy(measdata_live_filtered[0])
             refdataiszero = False
 
             self.updatePlot(refdata, measdata, refdataiszero)

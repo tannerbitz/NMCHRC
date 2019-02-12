@@ -15,6 +15,8 @@ import random
 import ReferenceSignalGeneratorAPI as refSigGen
 from scipy import stats
 import queue
+import copy
+from scipy import signal
 
 def getComPorts():
     tempPorts = []
@@ -1163,9 +1165,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.randcountend = 1000 #this will change
         self.cmdsigcount = 0
         self.cmdsigcountend = int((1/refsignalfreq)*self.vrtimerfreq)
-        self.cyclecount = 0
+        self.cyclecount = 1
         self.cyclecountend = 6
-
         self.holdtimer.start()
 
     def vrholdtimerfun(self):
@@ -1208,6 +1209,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self._serialThread.insertValIntoDaqReadings(7, self.cyclecount)
             self.cmdsigcount = 0
             self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
+            if (self.cyclecount == self.cyclecountend):
+                self.cmdsigcountend += int(3*self.vrtimerfreq) #add 3 seconds to end of last cycle
             self.cmdsigtimer.start()
             self.randtimer.stop()
 
@@ -1223,10 +1226,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.updatePlot(refdata, measdata, refdataiszero)
 
         else:
-            self.cyclecount = self.cyclecount + 1
-            self.cyclecountend = 6
             if (self.cyclecount < self.cyclecountend):
                 self.holdcount = 0
+                self.cyclecount += 1
                 self.holdtimer.start()
                 self.cmdsigtimer.stop()
             else:

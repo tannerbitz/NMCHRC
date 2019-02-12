@@ -90,6 +90,8 @@ class SerialThread(QThread):
     _serialstringdone = False
     _serialstringstoprocess = queue.Queue()
     _sdInserted = False
+    _noreadcount = 0
+    _waitForSdCardInsertedResponse = 500 #0.5 sec wait default. Will be changed in init method
 
     def __init__(self):
         QThread.__init__(self)
@@ -97,6 +99,7 @@ class SerialThread(QThread):
             # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
             self._serialTimerFreq = 180.0
+            self._waitForSdCardInsertedResponse = 1/self._serialTimerFreq*20*1000
             self._serialTimer.setInterval(1.0/self._serialTimerFreq*1000.0)
             self._serialTimer.timeout.connect(self.readFromDaq)
             self._serialTimer.timeout.connect(self.callForDaqReadings)
@@ -138,6 +141,7 @@ class SerialThread(QThread):
         try:
             #check for err messages that arrived since last data call
             if self._ser.in_waiting:
+                self._noreadcount = 0
                 while self._ser.in_waiting:
                     temp = self._ser.read().decode()
                     if (temp == ">"):
@@ -155,6 +159,12 @@ class SerialThread(QThread):
                         self._serialstringstoprocess.put(self._serialstring)
                         self._serialstring = ""
                         self.handleSerialStrings()
+
+            else:
+                self._noreadcount += 1
+                # if it hasn't read data for a sec, assume the DAQ needs to be restarted
+                if (self._noreadcount == self._serialTimerFreq):
+                    raise Exception
 
 
         except (OSError, serial.SerialException):
@@ -346,8 +356,8 @@ class MainWindow(QtWidgets.QMainWindow):
     _autotrialnumber = 1
     _autotrialcounter = 0
     _autotrialcountermin = 0
-    _autotrialcountermax = 119
     _trialsperround = 20
+    _autotrialcountermax = 4*_trialsperround-1
     _autotrialflexion = None
     _autotrialsinefreq = None
 
@@ -481,7 +491,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         self._serialThread.isSDCardInserted()
-        QtTest.QTest.qWait(1/self._serialThread.vrtimerfreq*5*1000)
+        QtTest.QTest.qWait(self._serialThread._waitForSdCardInsertedResponse)
         if (self._serialThread._sdInserted == False):
             self.lbl_mvctriallivenotes.setText("Insert SD Card")
             return
@@ -507,22 +517,22 @@ class MainWindow(QtWidgets.QMainWindow):
         elif (self._mvctrialflexion == "PF"):
             flexstr = "Push"
         if (self._mvctrialcounter < firstrestend):
-            self._serialThread.insertValIntoDaqReadings(6, 0) #insert 0 into 6th channel
+            self._serialThread.insertValIntoDaqReadings(7, 0) #insert 0 into 6th channel
             self.lbl_mvctriallivenotes.setText("{} in {}".format(flexstr, firstrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
-            self._serialThread.insertValIntoDaqReadings(6, 1) #insert 1 into 6th channel
+            self._serialThread.insertValIntoDaqReadings(7, 1) #insert 1 into 6th channel
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
-            self._serialThread.insertValIntoDaqReadings(6, 0)
+            self._serialThread.insertValIntoDaqReadings(7, 0)
             self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, secondrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
-            self._serialThread.insertValIntoDaqReadings(6, 1)
+            self._serialThread.insertValIntoDaqReadings(7, 1)
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
         elif (self._mvctrialcounter >= secondflexend and self._mvctrialcounter < thirdrestend):
-            self._serialThread.insertValIntoDaqReadings(6, 0)
+            self._serialThread.insertValIntoDaqReadings(7, 0)
             self.lbl_mvctriallivenotes.setText("Rest.  {} in {}".format(flexstr, thirdrestend-self._mvctrialcounter))
         elif (self._mvctrialcounter >= thirdrestend and self._mvctrialcounter < thirdflexend):
-            self._serialThread.insertValIntoDaqReadings(6, 1)
+            self._serialThread.insertValIntoDaqReadings(7, 1)
             self.lbl_mvctriallivenotes.setText("Goooo!!! {}".format(thirdflexend - self._mvctrialcounter))
         else:
             self._serialThread.stopSdWrite()
@@ -1038,8 +1048,8 @@ class MainWindow(QtWidgets.QMainWindow):
         QtTest.QTest.qWait(250)
         self._serialThread.supplyDaqReadings.disconnect(self.appendToCalCeilSamples)
 
-        refrawmin = np.min(self._calFloorSamples)
-        refrawmax = np.max(self._calCeilSamples)
+        refrawmin = np.mean(self._calFloorSamples)
+        refrawmax = np.mean(self._calCeilSamples)
         refrawspan = abs(refrawmax - refrawmin)
 
         calibrationCompleteFlag = True
@@ -1090,7 +1100,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Start Writing Process
         self._serialThread.isSDCardInserted()
-        QtTest.QTest.qWait(1/self._serialThread._serialTimerFreq*10*1000);
+        QtTest.QTest.qWait(self._serialThread._waitForSdCardInsertedResponse);
         if (self._serialThread._sdInserted == True):
             self._serialThread.startSdWrite(self._volreflexfilename)
             print("SD Card Inserted")
@@ -1159,7 +1169,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.holdcount = 0
 
             holdtimeremaining = self.holdtime*(1- (self.holdcount + 1)/self.holdcountend)
-            holdtimestr = "Hold at 0\nTime Remaining: {:3.2f}".format(holdtimeremaining)
+            holdtimestr = "Hold at 0\nTime Remaining: {:2.1f}".format(holdtimeremaining)
             self.lbl_volreflexlivenotes.setText(holdtimestr)
             self.updatePlot(refdata, np.mean(data[:, measuredsignalchannel]), True)
         else:
@@ -1182,6 +1192,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             timecycle = 1/refsignalfreq
             refSigGen.GenerateUnidirectionFlex()
+            self._serialThread.insertValIntoDaqReadings(7, self.cyclecount)
             self.cmdsigcount = 0
             self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
             self.cmdsigtimer.start()

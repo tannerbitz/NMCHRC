@@ -208,6 +208,7 @@ class SerialThread(QThread):
         try:
             while (not self._serialstringstoprocess.empty()):
                 temp = self._serialstringstoprocess.get()
+                temp.strip('<>')
                 temparr = temp.split(",")
                 cmd = int(temparr[0])
                 if (cmd == 0): #Err Message
@@ -1017,12 +1018,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # t-test (Welch's t-test)
             # Floor
+            confidencelevel = 0.95
             [t, p] = stats.ttest_ind(a=voltfloorsamples_low,
                                      b=voltfloorsamples_test,
                                      axis=0,
                                      equal_var=False)
 
-            if (p < 0.98):
+            if (p < confidencelevel):
                 voltfloor_high = voltfloor_test
             else:
                 voltfloor_low = voltfloor_test
@@ -1034,7 +1036,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                      axis=0,
                                      equal_var=False)
 
-            if (p < 0.98):
+            if (p < confidencelevel):
                 voltceil_low = voltceil_test
             else:
                 voltceil_high = voltceil_test
@@ -1205,8 +1207,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.updatePlot(refdata, measdata, refdataiszero)
         else:
             timecycle = 1/refsignalfreq
-            refSigGen.GenerateUnidirectionFlex()
             self._serialThread.insertValIntoDaqReadings(7, self.cyclecount)
+            refSigGen.GenerateUnidirectionFlex()
             self.cmdsigcount = 0
             self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
             if (self.cyclecount == self.cyclecountend):

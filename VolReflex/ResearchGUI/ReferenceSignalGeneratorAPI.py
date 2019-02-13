@@ -10,7 +10,7 @@
 import requests
 
 baseCmdStr = "http://192.168.0.107/RelayToI2C?Command="
-timeoutval = 0.05
+timeoutval = 0.1
 
 def GenerateUnidirectionFlex():
     cmd = baseCmdStr + "1"

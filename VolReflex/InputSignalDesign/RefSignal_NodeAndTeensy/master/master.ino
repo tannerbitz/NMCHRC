@@ -1,7 +1,6 @@
 #include<ESP8266WiFi.h>
 #include<ESP8266WebServer.h>
 #include<math.h>
-#include<Wire.h>
 
 // Webserver 
 ESP8266WebServer server;
@@ -39,8 +38,6 @@ void setup() {
   // Turn On Led
   pinMode(LED_BUILTIN, OUTPUT);
   
-  // Start I2C Connection
-  Wire.begin(D1, D2); // D5 = SDA, D6 = SCL
 
   // Wifi Setup
   WiFi.config(ip, gateway, subnet);
@@ -48,12 +45,8 @@ void setup() {
   WiFi.hostname("RefSignalGenerator");
   Serial.begin(115200);
   while(WiFi.status()!=WL_CONNECTED){
-    Serial.print(".");
     delay(500);
   }
-  Serial.println("");
-  Serial.print("IP Address: ");
-  Serial.print(WiFi.localIP());
   server.on("/RelayToI2C", RelayToI2C);
   server.on("/Blink", Blink);
   server.begin();

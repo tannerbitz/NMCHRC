@@ -536,6 +536,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                  self._player._isAdult,
                                  self._player._mvcTrialData,
                                  self._player._mvc)
+            self._mvctimer.timeout.disconnect(self.mvcTrialHandler)
 
 
             self._mvctimer.stop()

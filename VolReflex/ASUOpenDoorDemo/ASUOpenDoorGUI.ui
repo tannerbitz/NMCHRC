@@ -178,7 +178,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QLabel" name="lbl_daqportstatus">
+             <widget class="QLabel" name="lbl_comportstatus">
               <property name="font">
                <font>
                 <weight>50</weight>

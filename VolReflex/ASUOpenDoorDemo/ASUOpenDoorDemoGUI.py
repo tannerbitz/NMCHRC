@@ -152,7 +152,7 @@ class SerialThread(QThread):
             # Setup Serial Timer To Get and Emit Serial Readings. Timer not started til later.
             self._serialTimer = QtCore.QTimer()
             self._serialTimerFreq = 180.0
-            self._waitForSdCardInsertedResponse = 1/self._serialTimerFreq*20*1000
+            self._waitForSdCardInsertedResponse = 1/self._serialTimerFreq*30*1000
             self._serialTimer.setInterval(1.0/self._serialTimerFreq*1000.0)
             self._serialTimer.timeout.connect(self.readFromDaq)
             self._serialTimer.timeout.connect(self.callForDaqReadings)
@@ -478,20 +478,72 @@ class MainWindow(QtWidgets.QMainWindow):
                                  now.year)
         self.checkLeaderboardBtnsAndUpdate()
 
-    def recordMvc(self):
-        file = '/home/tannerbitz/Desktop/Patient19_MVC_DF.txt'
-        data = np.loadtxt(file, delimiter=',')
-        self._player._mvcTrialData = data[:,measuredsignalchannel].flatten()
 
-        playerName = self._player._name
-        if len(playerName) !=0:
+    def recordMvc(self):
+
+        # Check If Player Name is empty
+        if (self._player._name == ""):
+            self.lbl_livenotes.setText("Please Set Player")
+            return
+
+        # Check if serial is connected and SD Card is inserted
+        if (self._serialThread is None):
+            self.lbl_livenotes.setText("Connect Serial Before Proceeding")
+            return
+        if (self._serialThread._serIsRunning == False or self._serialThread is None):
+            self.lbl_livenotes.setText("Connect Serial Before Proceeding")
+            return
+
+        # Temporary container for measured data
+        self._mvcTrialDataTemp = []
+        self._serialThread.supplyDaqReadings.connect(self.insertToMvcTrialDataTemp)
+
+        self._mvctrialcounter = 0
+        self._mvctrialrepetition = 0
+        self._mvctimer = QtCore.QTimer()
+        self._mvctimer.timeout.connect(self.mvcTrialHandler)
+        self._mvctimer.start(1000)
+
+    def insertToMvcTrialDataTemp(self, vals):
+        if measuredsignalchannel is not None:
+            self._mvcTrialDataTemp.append(vals[measuredsignalchannel])
+
+    def mvcTrialHandler(self):
+        firstrestend = 5
+        firstflexend = firstrestend + 3
+        secondrestend = firstflexend + 5
+        secondflexend = secondrestend + 3
+        flexstr = "Pull"  #Dorsiflexion
+        if (self._mvctrialcounter < firstrestend):
+            self._serialThread.insertValIntoDaqReadings(7, 0) #insert 0 into 6th channel
+            self.lbl_livenotes.setText("{} in {}".format(flexstr, firstrestend-self._mvctrialcounter))
+        elif (self._mvctrialcounter >= firstrestend and self._mvctrialcounter < firstflexend):
+            self._serialThread.insertValIntoDaqReadings(7, 1) #insert 1 into 6th channel
+            self.lbl_livenotes.setText("Goooo!!! {}".format(firstflexend - self._mvctrialcounter))
+        elif (self._mvctrialcounter >= firstflexend and self._mvctrialcounter < secondrestend):
+            self._serialThread.insertValIntoDaqReadings(7, 0)
+            self.lbl_livenotes.setText("Rest.  {} in {}".format(flexstr, secondrestend-self._mvctrialcounter))
+        elif (self._mvctrialcounter >= secondrestend and self._mvctrialcounter < secondflexend):
+            self._serialThread.insertValIntoDaqReadings(7, 1)
+            self.lbl_livenotes.setText("Goooo!!! {}".format(secondflexend - self._mvctrialcounter))
+        else:
+            self.lbl_livenotes.setText("Done")
+
+            self._player._mvcTrialData = np.array(self._mvcTrialDataTemp).flatten()
+            self._mvcTrialDataTemp = []
             update_player_record(self._db,
                                  self._player._name,
                                  self._player._isAdult,
                                  self._player._mvcTrialData,
                                  self._player._mvc)
-        else:
-            self.lbl_livenotes.setText("Select Player")
+
+
+            self._mvctimer.stop()
+            self._mvctimer.deleteLater()
+
+        self._mvctrialcounter += 1
+
+
 
     def checkLeaderboardBtnsAndUpdate(self):
         rbtn = self.leaderboardrbtngroup.checkedButton()
@@ -548,22 +600,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def selectComPort(self):
         portobj = self.list_comport.selectedItems()
-        for i in list(portobj):
-            selectedport = str(i.text())
+        if len(portobj) == 0:
+            return # when nothing is selected
+
+        for port in portobj:
+            selectedport = str(port.text())
         selectedportparts = selectedport.split(" ")
         self._comport = selectedportparts[0]
         self.lbl_comport.setText("Port: {}".format(self._comport))
 
     def resetSerialOnThread(self):
-        if (self._daqport is None):
-            self.lbl_daqportstatus.setText("Status: Select COM Port")
+        if (self._comport is None):
+            self.lbl_comportstatus.setText("Status: Select COM Port")
         else:
             if (self._serialThread is None):
                 self._serialThread = SerialThread()
-                self._serialThread.supplyMessage.connect(self.printToDaqPortStatus)
+                self._serialThread.supplyMessage.connect(self.printToComPortStatus)
             self._serialThread.resetSerial(self._comport, serialbaudrate, serialtimeout)
 
-    def printToComPortStatus(self):
+    def printToComPortStatus(self, inStr):
         self.lbl_comportstatus.setText(inStr)
 
     def analyzeMvc(self):
@@ -579,7 +634,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         mvc = []
         ax.plot(t, data)
-        for i in range(0, 3):
+        for i in range(0, 2):
             ax.set_title("Pick the START of rest period {}".format(i))
             fig.canvas.draw()
             x = plt.ginput(1)

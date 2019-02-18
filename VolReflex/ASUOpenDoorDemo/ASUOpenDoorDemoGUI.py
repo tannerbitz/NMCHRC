@@ -424,6 +424,9 @@ class MainWindow(QtWidgets.QMainWindow):
     # Database
     _db = init_db()
 
+    # Percent mvc
+    _percentmvc = 0.5
+
     def __init__(self):
         super(MainWindow, self).__init__()
         ag = QDesktopWidget().availableGeometry()
@@ -442,6 +445,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Inialize Leaderboard
         self.initLeaderboardRbnGroup()
         self.initLeaderboard()
+
+        # Initialize Plot
+        self.initializePlot()
 
     def initLeaderboard(self):
         self.table_targetleaderboard.setRowCount(1)
@@ -477,6 +483,113 @@ class MainWindow(QtWidgets.QMainWindow):
                                  1,
                                  now.year)
         self.checkLeaderboardBtnsAndUpdate()
+
+
+    def initializePlot(self):
+        # Set axes properties
+        xAxisItem = pg.AxisItem(orientation='bottom', showValues=False)
+        yAxisItem = pg.AxisItem(orientation='left', showValues=True)
+        xAxisItem.showLabel(False)
+        yAxisItem.showLabel(False)
+
+        # Initialize plot
+        pg.setConfigOption('background', 'w')
+        pg.setConfigOption('foreground', 'k')
+        self.plotwin = pg.GraphicsLayoutWidget()
+        self.layout_pyqtgraph.addWidget(self.plotwin)
+        self.plt = self.plotwin.addPlot(row=0, col=0, rowspan=1, colspan=1, axisItems={'left': yAxisItem, 'bottom': xAxisItem})
+        self.plt.setRange(xRange=(0, 1), yRange=(-1, 1), padding=0.0)
+
+        # Init lines
+        self.reference_line = pg.PlotCurveItem()
+        self.measured_line = pg.PlotCurveItem()
+        self.zero_line = pg.PlotCurveItem()
+        self.target_line = pg.PlotCurveItem()
+        self.target_line2 = pg.PlotCurveItem()
+
+        # Define line properties and set properties
+        reference_line_pen = pg.mkPen(color='c', width=30, style=QtCore.Qt.SolidLine)
+        measured_line_pen = pg.mkPen(color='r', width=10, style=QtCore.Qt.SolidLine)
+        zero_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
+        target_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
+
+        self.measured_line.setPen(measured_line_pen)
+        self.zero_line.setPen(zero_line_pen)
+        self.reference_line.setPen(reference_line_pen)
+        self.target_line.setPen(target_line_pen)
+        self.target_line2.setPen(target_line_pen)
+
+        # Set lines in initial position
+        xdata = np.array([0, 1])
+        ydata = np.array([0, 0])
+        self.reference_line.setData(x=xdata, y=ydata)
+        self.measured_line.setData(x=xdata, y=ydata)
+        self.zero_line.setData(x=xdata, y=ydata)
+        self.target_line.setData(x=xdata, y=ydata)
+        self.target_line2.setData(x=xdata, y=ydata)
+
+        # Add lines to plot
+        self.plt.addItem(self.reference_line)
+        self.plt.addItem(self.measured_line)
+        self.plt.addItem(self.zero_line)
+        self.plt.addItem(self.target_line)
+        self.plt.addItem(self.target_line2)
+
+    def updatePlotLines(self, mvc):
+
+        maxflex = self._percentmvc*mvc
+        self.topborder = 1.3*maxflex
+        self.bottomborder = -1.3*maxflex
+        self.plt.setRange(xRange=(0,1), yRange=(self.bottomborder, self.topborder), padding=0.0)
+        self.target_line.setData(x=np.array([0,1]),
+                                    y=np.array([maxflex, maxflex]))
+        self.target_line2.setData(x=np.array([0,1]),
+                                   y=np.array([-maxflex, -maxflex]))
+        xdata = np.array([0,1])
+        ydata = np.array([0, 0])
+        self.reference_line.setData(x=xdata, y=ydata)
+        self.measured_line.setData(x=xdata, y=ydata)
+        self.zero_line.setData(x=xdata, y=ydata)
+        self.plt.update()
+
+
+
+    def updatePlot(self, refdata, measdata, refsigiszero):
+        # Convert Ref Sig to N-m
+        if (refsigiszero == True):
+            referenceval = 0
+        else:
+            referenceval = refdata
+            if refsignaltype == "sine":
+                if volreflexflexion in ["DF", "DFPF"]:
+                    referenceval = refsignalmin + ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
+                elif volreflexflexion == "PF":
+                    referenceval = refsignalmax - ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
+            elif refsignaltype == "step":
+                if volreflexflexion ==  "DF":
+                    if referenceval < 2048:
+                        referenceval = refsignalmin
+                    else:
+                        referenceval = refsignalmax
+                elif volreflexflexion == "PF":
+                    if referenceval < 2048:
+                        referenceval = refsignalmax
+                    else:
+                        referenceval = refsignalmin
+
+        # Convert Meas Sig to N-m
+        measuredval = (measdata - measzero) * serval2torqueNm
+        if (measuredval > topborder):
+            measuredval = topborder
+        elif (measuredval < bottomborder):
+            measuredval = bottomborder
+
+        #Update Plot
+        self.reference_line.setData(x=np.array([0,1]),
+                                    y=np.array([referenceval, referenceval]))
+        self.measured_line.setData(x=np.array([0,1]),
+                                   y=np.array([measuredval, measuredval]))
+        self.plt.update()
 
 
     def recordMvc(self):
@@ -684,6 +797,75 @@ class MainWindow(QtWidgets.QMainWindow):
                              self._player._mvc)
         self.setPlayerInfoLabels(self._player._name)
         plt.close()
+        self.updatePlotLines(self._player._mvc)
+
+
+    def appendToRestPhaseSamples(self, vals):
+        if (measuredsignalchannel is not None):
+            self._restphasesamples.append(vals[measuredsignalchannel])
+
+    def startTargetGame(self):
+        global measzero
+
+        #Check Settings
+        if (self._serialThread is None):
+            sel.lbl_livenotes.setText("Reset Serial")
+            return
+        if (self._serialThread._serIsRunning == False):
+            self.lbl_livenotes.setText("Reset Serial")
+            return
+
+
+        self.lbl_livenotes.setText("")
+
+        # Ensure channels reading correct voltage Ranges
+        self._serialThread.changeVoltageRange(measuredsignalchannel, self._serialThread._voltRanges['NEG_FIVE_TO_FIVE'])
+
+
+        # Start Rest Phase
+        self.lbl_livenotes.setText("Rest Phase")
+        self._restphasesamples = []
+        QtTest.QTest.qWait(2000) # no samples for 2 seconds so player can adjust
+        self._serialThread.supplyDaqReadings.connect(self.appendToRestPhaseSamples)
+        QtTest.QTest.qWait(3000) # sample rest for 3s
+        self._serialThread.supplyDaqReadings.disconnect(self.appendToRestPhaseSamples)
+
+        # Calculate a measured sig zerolevel. Its the avg of last half of rest phase samples
+        nRestSamples = len(self.restphasesamples)
+        measzero = int(np.mean(self.restphasesamples[int(nRestSamples/2):]))
+
+        # initialize data for holdtimer, randtimer, and cycletimer
+        self._targetCount = 0
+        self.targetgametimerfreq = 60 #hz, used for holdtimer, randtimer, cmdsigtimer
+        self.targetgametimer = QtCore.QTimer()
+        self.targetgametimer.setInterval(1/self.targetgametimerfreq*1000) #inveral in ms
+        self.holdtimer.timeout.connect(self.targetGameTimerFun)
+        self.holdtimer.start()
+
+    def targetGameTimerFun(self):
+        if (self.holdcount < self.holdcountend):
+            # Copy data from queue
+            refdata = 0
+            measdata = copy.copy(measdata_live_filtered[0])
+            measdata_nm = (measdata - measzero)*serval2torqueNm
+            holdtol = np.abs(refsignalspan*0.1)
+            holdsuccess = (np.abs(measdata_nm) < holdtol)
+
+            if holdsuccess:
+                self.holdcount = self.holdcount + 1
+            else:
+                self.holdcount = 0
+
+            holdtimeremaining = self.holdtime*(1- (self.holdcount + 1)/self.holdcountend)
+            holdtimestr = "Hold at 0\nTime Remaining: {:2.1f}".format(holdtimeremaining)
+            self.lbl_volreflexlivenotes.setText(holdtimestr)
+            self.updatePlot(refdata, measdata, True)
+        else:
+            self.randtime = random.uniform(2, 3)
+            self.randcountend = int(self.vrtimerfreq*self.randtime)
+            self.randcount = 0
+            self.randtimer.start()
+            self.holdtimer.stop()
 
 
     def addPlayer(self):

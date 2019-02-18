@@ -1045,8 +1045,8 @@ class MainWindow(QtWidgets.QMainWindow):
             print("cycle {}: floor: {} ceil: {}".format(iCycle, voltfloor_low, voltceil_high))
 
         # Move 10 inside of floor and ceil to make floor for noise in data
-        voltfloor = voltfloor_low + 10
-        voltceil = voltceil_high - 10
+        voltfloor = voltfloor_low + 20
+        voltceil = voltceil_high - 20
 
         # Set Teensy Volt Floor = 0, Volt Ceil = 4095
         self._calFloorSamples = []

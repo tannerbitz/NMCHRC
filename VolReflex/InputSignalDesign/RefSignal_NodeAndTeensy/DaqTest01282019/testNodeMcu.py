@@ -10,7 +10,7 @@ for i in serlist:
 
 def run():
     ser.write(b'<5,0,0>')
-    ser.write(b'<0,nodemcutest11.txt>')
+    ser.write(b'<0,nodemcutest12.txt>')
     ser.write(b'<6,7,1>')
 
     # Change Freq = 0.20Hz on Ref Signal Generator (NodeMcu)

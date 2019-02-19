@@ -15,6 +15,8 @@ from matplotlib.patches import Rectangle
 import sqlite3
 import os
 import datetime
+import random
+import copy
 
 # Channels
 referencesignalchannel = 1
@@ -397,7 +399,8 @@ class User:
     _name = ""
     _isAdult = False
     _mvcTrialData = np.array([])
-    _mvc = 0.0
+    _mvcDefault = 0.0
+    _mvc = _mvcDefault
 
 
     def __init__(self, name="", isAdult=False, mvctrialrawdata=np.array([]), mvc=None, targethithist=[]):
@@ -474,15 +477,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.btn_addplayer.clicked.connect(self.addPlayer)
         self.combo_returningplayer.activated.connect(self.chooseReturningPlayer)
         self.btn_recordmvc.clicked.connect(self.recordMvc)
-        self.btn_targetgamestart.clicked.connect(self.targetgamestart)
+        self.btn_targetgamestart.clicked.connect(self.startTargetGame)
+        self.btn_targetgamestart.clicked.connect(self.stopTargetGame)
 
-    def targetgamestart(self):
-        now = datetime.datetime.now()
-        insert_into_target_table(self._db,
-                                 self._player._name,
-                                 1,
-                                 now.year)
-        self.checkLeaderboardBtnsAndUpdate()
 
 
     def initializePlot(self):
@@ -498,46 +495,59 @@ class MainWindow(QtWidgets.QMainWindow):
         self.plotwin = pg.GraphicsLayoutWidget()
         self.layout_pyqtgraph.addWidget(self.plotwin)
         self.plt = self.plotwin.addPlot(row=0, col=0, rowspan=1, colspan=1, axisItems={'left': yAxisItem, 'bottom': xAxisItem})
-        self.plt.setRange(xRange=(0, 1), yRange=(-1, 1), padding=0.0)
+        self.plt.setRange(xRange=(0, 1), yRange=(-1.3, 1.3), padding=0.0)
 
         # Init lines
-        self.reference_line = pg.PlotCurveItem()
+        self.reference_rect_left = 0
+        self.reference_rect_bottom = -0.1
+        self.reference_rect_height = 0.2
+        self.reference_rect_width = 1
+        self.reference_rect = pg.QtGui.QGraphicsRectItem(self.reference_rect_left,
+                                                         self.reference_rect_bottom,
+                                                         self.reference_rect_width,
+                                                         self.reference_rect_height)
         self.measured_line = pg.PlotCurveItem()
         self.zero_line = pg.PlotCurveItem()
         self.target_line = pg.PlotCurveItem()
         self.target_line2 = pg.PlotCurveItem()
 
         # Define line properties and set properties
-        reference_line_pen = pg.mkPen(color='c', width=30, style=QtCore.Qt.SolidLine)
         measured_line_pen = pg.mkPen(color='r', width=10, style=QtCore.Qt.SolidLine)
         zero_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
         target_line_pen = pg.mkPen(color='k', width=5, style=QtCore.Qt.DashLine)
 
+
+        self.reference_rect.setPen(pg.mkPen(None))
+        self.reference_rect.setBrush(pg.mkBrush('c'))
         self.measured_line.setPen(measured_line_pen)
         self.zero_line.setPen(zero_line_pen)
-        self.reference_line.setPen(reference_line_pen)
         self.target_line.setPen(target_line_pen)
         self.target_line2.setPen(target_line_pen)
 
         # Set lines in initial position
         xdata = np.array([0, 1])
         ydata = np.array([0, 0])
-        self.reference_line.setData(x=xdata, y=ydata)
         self.measured_line.setData(x=xdata, y=ydata)
         self.zero_line.setData(x=xdata, y=ydata)
         self.target_line.setData(x=xdata, y=ydata)
         self.target_line2.setData(x=xdata, y=ydata)
 
         # Add lines to plot
-        self.plt.addItem(self.reference_line)
+        self.plt.addItem(self.reference_rect)
         self.plt.addItem(self.measured_line)
         self.plt.addItem(self.zero_line)
         self.plt.addItem(self.target_line)
         self.plt.addItem(self.target_line2)
 
-    def updatePlotLines(self, mvc):
+    def setDefaultPlotLines(self, mvc):
 
+        self._holdtolerance = 0.1
         maxflex = self._percentmvc*mvc
+        self.reference_rect_left = 0
+        self.reference_rect_bottom = 0-maxflex*self._holdtolerance
+        self.reference_rect_width = 1
+        self.reference_rect_height = maxflex*self._holdtolerance*2
+
         self.topborder = 1.3*maxflex
         self.bottomborder = -1.3*maxflex
         self.plt.setRange(xRange=(0,1), yRange=(self.bottomborder, self.topborder), padding=0.0)
@@ -547,46 +557,27 @@ class MainWindow(QtWidgets.QMainWindow):
                                    y=np.array([-maxflex, -maxflex]))
         xdata = np.array([0,1])
         ydata = np.array([0, 0])
-        self.reference_line.setData(x=xdata, y=ydata)
+        self.reference_rect.setRect(self.reference_rect_left,
+                                    self.reference_rect_bottom,
+                                    self.reference_rect_width,
+                                    self.reference_rect_height)
         self.measured_line.setData(x=xdata, y=ydata)
         self.zero_line.setData(x=xdata, y=ydata)
         self.plt.update()
 
 
 
-    def updatePlot(self, refdata, measdata, refsigiszero):
-        # Convert Ref Sig to N-m
-        if (refsigiszero == True):
-            referenceval = 0
-        else:
-            referenceval = refdata
-            if refsignaltype == "sine":
-                if volreflexflexion in ["DF", "DFPF"]:
-                    referenceval = refsignalmin + ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
-                elif volreflexflexion == "PF":
-                    referenceval = refsignalmax - ((referenceval - refrawmin)/refrawspan)*refsignalspan  # this assumes A/D measurements from the 12-bit DAQ
-            elif refsignaltype == "step":
-                if volreflexflexion ==  "DF":
-                    if referenceval < 2048:
-                        referenceval = refsignalmin
-                    else:
-                        referenceval = refsignalmax
-                elif volreflexflexion == "PF":
-                    if referenceval < 2048:
-                        referenceval = refsignalmax
-                    else:
-                        referenceval = refsignalmin
-
-        # Convert Meas Sig to N-m
-        measuredval = (measdata - measzero) * serval2torqueNm
-        if (measuredval > topborder):
-            measuredval = topborder
-        elif (measuredval < bottomborder):
-            measuredval = bottomborder
-
+    def updatePlot(self, measuredval):
         #Update Plot
-        self.reference_line.setData(x=np.array([0,1]),
-                                    y=np.array([referenceval, referenceval]))
+        if measuredval < self.bottomborder:
+            measuredval = self.bottomborder
+        elif measuredval > self.topborder:
+            measuredval = self.topborder
+
+        self.reference_rect.setRect(self.reference_rect_left,
+                                    self.reference_rect_bottom,
+                                    self.reference_rect_width,
+                                    self.reference_rect_height)
         self.measured_line.setData(x=np.array([0,1]),
                                    y=np.array([measuredval, measuredval]))
         self.plt.update()
@@ -650,10 +641,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                  self._player._mvcTrialData,
                                  self._player._mvc)
             self._mvctimer.timeout.disconnect(self.mvcTrialHandler)
-
-
             self._mvctimer.stop()
-            self._mvctimer.deleteLater()
 
         self._mvctrialcounter += 1
 
@@ -670,18 +658,24 @@ class MainWindow(QtWidgets.QMainWindow):
             filterAge = 0
             sqlstr = """SELECT target.user_name, target.targetsHit
                         FROM target INNER JOIN user ON target.user_name = user.name
-                        WHERE user.isAdult={} AND target.year={} LIMIT 20
+                        WHERE user.isAdult={} AND target.year={}
+                        ORDER BY target.targetsHit DESC
+                        LIMIT 20
                         """.format(filterAge, now.year)
         elif (rbtn.text() == "Adult"):
             filterAge = 1
             sqlstr = """SELECT target.user_name, target.targetsHit
                         FROM target INNER JOIN user ON target.user_name = user.name
-                        WHERE user.isAdult={} AND target.year={} LIMIT 20
+                        WHERE user.isAdult={} AND target.year={}
+                        ORDER BY target.targetsHit DESC
+                        LIMIT 20
                         """.format(filterAge, now.year)
         elif (rbtn.text() == "Overall"):
             sqlstr = """SELECT target.user_name, target.targetsHit
                         FROM target INNER JOIN user ON target.user_name = user.name
-                        WHERE target.year={} LIMIT 20
+                        WHERE target.year={}
+                        ORDER BY target.targetsHit DESC
+                        LIMIT 20
                         """.format(now.year)
 
         records = get_leaderboard_records(self._db, sqlstr)
@@ -697,6 +691,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def chooseReturningPlayer(self, player):
         self._player._name = self.combo_returningplayer.itemText(player)
         self.setPlayerInfoLabels(self._player._name)
+        if (not self._player._mvc == self._player._mvcDefault):
+            self.setDefaultPlotLines(self._player._mvc)
+        else:
+            self.setDefaultPlotLines(1)
         self.lineedit_newplayer.clear()
 
     def refreshReturningPlayerList(self):
@@ -797,7 +795,7 @@ class MainWindow(QtWidgets.QMainWindow):
                              self._player._mvc)
         self.setPlayerInfoLabels(self._player._name)
         plt.close()
-        self.updatePlotLines(self._player._mvc)
+        self.setDefaultPlotLines(self._player._mvc)
 
 
     def appendToRestPhaseSamples(self, vals):
@@ -805,11 +803,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self._restphasesamples.append(vals[measuredsignalchannel])
 
     def startTargetGame(self):
-        global measzero
 
         #Check Settings
         if (self._serialThread is None):
-            sel.lbl_livenotes.setText("Reset Serial")
+            self.lbl_livenotes.setText("Reset Serial")
             return
         if (self._serialThread._serIsRunning == False):
             self.lbl_livenotes.setText("Reset Serial")
@@ -831,41 +828,77 @@ class MainWindow(QtWidgets.QMainWindow):
         self._serialThread.supplyDaqReadings.disconnect(self.appendToRestPhaseSamples)
 
         # Calculate a measured sig zerolevel. Its the avg of last half of rest phase samples
-        nRestSamples = len(self.restphasesamples)
-        measzero = int(np.mean(self.restphasesamples[int(nRestSamples/2):]))
+        self.measzero = int(np.mean(self._restphasesamples))
 
         # initialize data for holdtimer, randtimer, and cycletimer
         self._targetCount = 0
-        self.targetgametimerfreq = 60 #hz, used for holdtimer, randtimer, cmdsigtimer
+        self._targetGameTimerCount = 0
+        self._targetgametimerfreq = 60 #hz, used for holdtimer, randtimer, cmdsigtimer
+        self.lbl_targethitcount.setText("{}".format(int(self._targetCount)))
+
+        self._holdtolerance = self._percentmvc*self._player._mvc*0.1
+        self._withinTolCount = 0
+        self._holdtime = 1
+        self._successfullHoldCount = self._holdtime*self._targetgametimerfreq
+
+        self._needNewTarget = True
+        self._targetGameDuration = 60 #s
+        self._targetGameTimerCountEnd = self._targetgametimerfreq*self._targetGameDuration
         self.targetgametimer = QtCore.QTimer()
-        self.targetgametimer.setInterval(1/self.targetgametimerfreq*1000) #inveral in ms
-        self.holdtimer.timeout.connect(self.targetGameTimerFun)
-        self.holdtimer.start()
+        self.targetgametimer.setInterval(1/self._targetgametimerfreq*1000) #inveral in ms
+        self.targetgametimer.timeout.connect(self.targetGameTimerFun)
+        self.targetgametimer.start()
 
     def targetGameTimerFun(self):
-        if (self.holdcount < self.holdcountend):
-            # Copy data from queue
-            refdata = 0
-            measdata = copy.copy(measdata_live_filtered[0])
-            measdata_nm = (measdata - measzero)*serval2torqueNm
-            holdtol = np.abs(refsignalspan*0.1)
-            holdsuccess = (np.abs(measdata_nm) < holdtol)
+        if (self._targetGameTimerCount < self._targetGameTimerCountEnd):
+            self._targetGameTimerCount += 1
 
+            if (self._needNewTarget == True):
+                # Get new target level, center rectangle around this level
+                self._targetLevel = random.uniform(-1, 1)*self._percentmvc*self._player._mvc
+                self.reference_rect_left = 0
+                self.reference_rect_bottom = self._targetLevel - self._holdtolerance
+                self.reference_rect_width = 1
+                self.reference_rect_height = self._holdtolerance * 2
+                self._needNewTarget = False
+
+            # Test measured data to see if it it's within tolerance
+            measdata = copy.copy(self._serialThread.measdata_live_filtered[0])
+            measdata_nm = (measdata - self.measzero)*serval2torqueNm
+
+            holdsuccess = (np.abs(measdata_nm - self._targetLevel) < self._holdtolerance)
             if holdsuccess:
-                self.holdcount = self.holdcount + 1
+                self._withinTolCount += 1
             else:
-                self.holdcount = 0
+                self._withinTolCount = 0
 
-            holdtimeremaining = self.holdtime*(1- (self.holdcount + 1)/self.holdcountend)
-            holdtimestr = "Hold at 0\nTime Remaining: {:2.1f}".format(holdtimeremaining)
-            self.lbl_volreflexlivenotes.setText(holdtimestr)
-            self.updatePlot(refdata, measdata, True)
+            if (self._withinTolCount >= self._successfullHoldCount):
+                self._targetCount += 1
+                self.lbl_targethitcount.setText("{}".format(self._targetCount))
+                self._needNewTarget = True
+                self._withinTolCount = 0
+
+            progbarval = int(self._withinTolCount/self._successfullHoldCount*100)
+            self.pbar_targetholdprog.setValue(progbarval)
+            timeremaining = self._targetGameDuration*(1 - self._targetGameTimerCount/self._targetGameTimerCountEnd)
+            timeremainingstr = "Time Remaining: {}s".format(int(timeremaining))
+            self.lbl_livenotes.setText(timeremainingstr)
+            self.updatePlot(measdata_nm)
         else:
-            self.randtime = random.uniform(2, 3)
-            self.randcountend = int(self.vrtimerfreq*self.randtime)
-            self.randcount = 0
-            self.randtimer.start()
-            self.holdtimer.stop()
+            self.lbl_livenotes.setText("Done")
+            now = datetime.datetime.now()
+            insertsuccess = insert_into_target_table(self._db,
+                                                     self._player._name,
+                                                     self._targetCount,
+                                                     now.year)
+            print("insert success {}".format(insertsuccess))
+            self.checkLeaderboardBtnsAndUpdate()
+            self.setDefaultPlotLines(self._player._mvc)
+            self.targetgametimer.stop()
+
+
+    def stopTargetGame(self):
+        whatever = 1
 
 
     def addPlayer(self):

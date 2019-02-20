@@ -1143,8 +1143,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if (refsignaltype == "sine"):
             refSigGen.ChangeFreq(refsignalfreq)
         elif (refsignaltype == "step"):
-            steptime = 3.0
-            refSigGen.ChangeStepDuration(steptime)
+            self.steptime = 3.0
+            refSigGen.ChangeStepDuration(self.steptime)
         else:
             self.lbl_volreflexlivenotes.setText("Ref Signal Type Not Sine or Step")
             return
@@ -1166,7 +1166,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.randcount = 0
         self.randcountend = 1000 #this will change
         self.cmdsigcount = 0
-        self.cmdsigcountend = int((1/refsignalfreq)*self.vrtimerfreq)
+        if (refsignaltype == "sine"):
+            self.cmdsigcountend = int((1/refsignalfreq)*self.vrtimerfreq)
+        elif (refsignaltype == "step"):
+            self.cmdsigcountend  = int(self.steptime*self.vrtimerfreq)
         self.cyclecount = 1
         self.cyclecountend = 6
         self.holdtimer.start()
@@ -1206,11 +1209,16 @@ class MainWindow(QtWidgets.QMainWindow):
             refdataiszero = True
             self.updatePlot(refdata, measdata, refdataiszero)
         else:
-            timecycle = 1/refsignalfreq
             self._serialThread.insertValIntoDaqReadings(7, self.cyclecount)
-            refSigGen.GenerateUnidirectionFlex()
+            if (refsignaltype == "sine"):
+                timecycle = 1/refsignalfreq
+                self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
+                refSigGen.GenerateUnidirectionFlex()
+            elif (refsignaltype == "step"):
+                self.cmdsigcountend = int(self.steptime*self.vrtimerfreq)
+                refSigGen.GenerateStep()
+
             self.cmdsigcount = 0
-            self.cmdsigcountend = int(timecycle*self.vrtimerfreq)
             if (self.cyclecount == self.cyclecountend):
                 self.cmdsigcountend += int(3*self.vrtimerfreq) #add 3 seconds to end of last cycle
             self.cmdsigtimer.start()

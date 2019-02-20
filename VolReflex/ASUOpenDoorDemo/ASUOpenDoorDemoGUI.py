@@ -430,6 +430,8 @@ class MainWindow(QtWidgets.QMainWindow):
     # Percent mvc
     _percentmvc = 0.5
 
+    targetgametimer = QtCore.QTimer()
+
     def __init__(self):
         super(MainWindow, self).__init__()
         ag = QDesktopWidget().availableGeometry()
@@ -478,7 +480,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.combo_returningplayer.activated.connect(self.chooseReturningPlayer)
         self.btn_recordmvc.clicked.connect(self.recordMvc)
         self.btn_targetgamestart.clicked.connect(self.startTargetGame)
-        self.btn_targetgamestart.clicked.connect(self.stopTargetGame)
+        self.btn_targetgamestop.clicked.connect(self.stopTargetGame)
 
 
 
@@ -690,6 +692,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def chooseReturningPlayer(self, player):
         self._player._name = self.combo_returningplayer.itemText(player)
+        if (self._player._name == ""):
+            return
         self.setPlayerInfoLabels(self._player._name)
         if (not self._player._mvc == self._player._mvcDefault):
             self.setDefaultPlotLines(self._player._mvc)
@@ -891,14 +895,19 @@ class MainWindow(QtWidgets.QMainWindow):
                                                      self._player._name,
                                                      self._targetCount,
                                                      now.year)
-            print("insert success {}".format(insertsuccess))
             self.checkLeaderboardBtnsAndUpdate()
             self.setDefaultPlotLines(self._player._mvc)
             self.targetgametimer.stop()
 
 
     def stopTargetGame(self):
-        whatever = 1
+        if (self.targetgametimer is not None):
+            self.lbl_livenotes.setText("Done")
+            if (self._player._mvc != self._player._mvcDefault):
+                self.setDefaultPlotLines(self._player._mvc)
+            else:
+                self.setDefaultPlotLines(1)
+            self.targetgametimer.stop()
 
 
     def addPlayer(self):
@@ -920,6 +929,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setPlayerInfoLabels(self._player._name)
         self.refreshReturningPlayerList()
+        self.setDefaultPlotLines(1)
 
     def setPlayerInfoLabels(self, name):
         record = get_player_record(self._db, name)

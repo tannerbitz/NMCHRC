@@ -191,10 +191,20 @@ function res = PlotProcessedData(varargin)
                 anyaboveupperbound = any( (tempcycle_area2test - upperbound) > 0 );
                 anybelowlowerbound = any( (tempcycle_area2test - lowerbound) < 0 );
                 
+                % Check if any activation level above 10 for 1.5 seconds
+                % before trial
+                rest_area2test = tempcycle(1:1500);
+                anyabove10duringrest1 = any( (abs(rest_area2test)-10) >  0 );
+                
+                % Check if any activation level above 10 from 0.25 seconds
+                % after last ind of average activation of 10 to end
+                rest_area2test = tempcycle( unfilterdatastruct(iFlex, iFreq).measmean_lastindover10 + 250: end);
+                anyabove10duringrest2 = any( (abs(rest_area2test)-10) >  0 );
+                
                 % Plot if no violations of 3 std upper/lower bounds,
                 % continue to next for loop if violation occurs
                 plotinfo(iFlex, iFreq).totalLines = plotinfo(iFlex, iFreq).totalLines + 1;
-                if ( anyaboveupperbound || anybelowlowerbound )
+                if ( anyaboveupperbound || anybelowlowerbound || anyabove10duringrest1 || anyabove10duringrest2)
                     % Add data to filtereddatastruct
                     filtereddatastruct(iFlex, iFreq).violated.measdata(end+1, :) = tempcycle;
                     filtereddatastruct(iFlex, iFreq).violated.patnum(end+1, 1) = patnum;

@@ -108,25 +108,25 @@ function res = ProcessRawData(varargin)
    % Load Data
     refchannel = 2;
     measchannel = 1;
+    flagchannel = 8;
 
     data = load(fullfile(trialpath, trialfile));
     refdata = data(:,refchannel);
     measdata = data(:, measchannel);
+    flagdata = data(:, flagchannel);
+    flagdata(1:5000) = 0; % some beginning samples in flagdata are not 0, but should be
+    flagdata(2:end) = diff(flagdata);
+    cyclestarttemp = find(flagdata) + 5; %cycles start 5ms after flag
     
     % There is a pause between 0-5s to start each trial.  Sometimes
     % patients adjust during the first couple seconds, so take the
     % zerolevel to be from 2-5s (i.e. sample 2000-5000)
     zerolevel = mean(measdata(2000:5000)); 
     measdata = measdata - zerolevel;
-
     
-    % After the 5s initial 'zero' period, a 4-6s random pause occurs,
-    % followed by a sinusoid.  We don't know when the cycle starts so we
-    % will generate a 'perfect' sinusoid and use least squares to determine
-    % the starting point.   Because of some possible extra time added to
-    % the routine during startup, the first cycle will be searched 4-8
-    % seconds after the initial 5s period.  After that, we will only search
-    % the 4-6s after a cycle ends.  
+    % The cycle starts at the indices from the find(flagdata) command, it
+    % end trialstruct.samplesperperiod samples later.  We will capture this
+    % range with 1500 samples on either side.
     samplespersec = 1000;
     samplesbeforecycle = 1500;
     samplesaftercycle = 1500;
@@ -138,31 +138,15 @@ function res = ProcessRawData(varargin)
     trialstruct.refminraw = refmin;
     sampletime = 1/samplespersec;
     sinetime = (1:1:trialstruct.samplesperperiod)*sampletime;
-    perfectsine = (refmax-refmin)/2*(1-cos(2*pi*trialstruct.refsigfreq*sinetime)) + refmin;
     
     sineindexinfo = {};
     trialstruct.cyclerefdataraw = [];
     trialstruct.cyclemeasdataraw = [];
-    for cyclecount = 1:6
-        if (cyclecount == 1)
-            intervalchecksamples = 4000;
-        else
-            intervalchecksamples = 2000;
-        end
-        norm_hist = [];
-        sineindexstruct = struct;
-        % Calculate square error vs perfect sine wave for each interval
-        % where sine could be
-        for i = 1:intervalchecksamples
-            tempsinestart = startsample+i;
-            refdatainterval = refdata(tempsinestart:tempsinestart+trialstruct.samplesperperiod-1)';
-            norm_hist(i) = norm(perfectsine-refdatainterval);
-        end
-        % Index I where square error is minimized
-        [Y, I] = min(norm_hist);
+    for cyclecount = 1:length(cyclestarttemp)
+        
         sineindexstruct.cyclenumber = cyclecount;
-        sineindexstruct.cyclestartind = startsample + I;
-        sineindexstruct.cyclestopind = startsample + I + trialstruct.samplesperperiod -1;
+        sineindexstruct.cyclestartind = cyclestarttemp(cyclecount);
+        sineindexstruct.cyclestopind = sineindexstruct.cyclestartind + trialstruct.samplesperperiod -1;
         sineindexstruct.intervalstartind = sineindexstruct.cyclestartind - samplesbeforecycle;
         sineindexstruct.intervalstopind = sineindexstruct.cyclestopind + samplesaftercycle;
         sineindexinfo{end+1} = sineindexstruct;

@@ -2,6 +2,8 @@
 #include <i2c_t3.h>     // I2C (Wire) library for Teensy
 #include <SdFat.h>      // SdCard Interface Library
 
+// Writing Flag
+bool isWriting = false;
 
 // Serial Commands
 enum Commands{
@@ -389,6 +391,11 @@ void startSdWrite(char * serLine){
    * It then connects with the sd card, creates the file, and
    * if it has the time information, then it also creates the timestamps
    */
+
+  if (isWriting){
+    return;
+  }
+  
   writeTimestampFlag = false;
   char * pch;
   pch = strtok(serLine, ", ");
@@ -532,6 +539,9 @@ void startSdWrite(char * serLine){
     }
   }
 
+  // Change isWriting
+  isWriting = true;
+
   // Start Timer To call writeToSdCar every 1ms
   myTimer.begin(writeToSdCard, intervalInMicroseconds);
 }
@@ -540,6 +550,8 @@ void stopSdWrite(){
   // Stop Calling writeToSdCard and close file
   myTimer.end();
   file.close();
+
+  isWriting = false;
 }
 
 void ParseSerialInput(){

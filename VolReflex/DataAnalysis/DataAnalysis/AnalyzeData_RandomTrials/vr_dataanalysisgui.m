@@ -22,7 +22,7 @@ function varargout = vr_dataanalysisgui(varargin)
 
 % Edit the above text to modify the response to help vr_dataanalysisgui
 
-% Last Modified by GUIDE v2.5 25-Jan-2019 23:11:42
+% Last Modified by GUIDE v2.5 25-Mar-2019 18:23:34
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -188,6 +188,20 @@ function btn_processvrdata_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % Get all VR Files in ../PatXX/RawData directory
 
+minvalstr = get(handles.lineedit_minval, 'string');
+minval = str2num(minvalstr);
+if isemtpy(minval) || minval < 0 || minval > 4095
+    set(handles.textbox_rawdatafolder, 'string', 'Input a min val between 0-4095');
+    return;
+end
+
+maxvalstr = get(handles.lineedit_maxval, 'string');
+maxval = str2num(maxvalstr);
+if isempty(maxval) || maxval < 0 || maxval > 4095
+    set(handles.textbox_rawdatafolder, 'string', 'Input a max val between 0-4095');
+    return;
+end
+    
 RD_DIR = get(handles.textbox_rawdatafolder, 'string');
 if exist(RD_DIR, 'dir') == 0
     set(handles.textbox_rawdatafolder, 'string', 'Choose RawData Folder First');
@@ -237,7 +251,8 @@ else
     rawfiles = splitlines(rawfiles);
 end
 
-re = 'PatNo\d+.*[D|P]F_\d-\d+Hz.*\.txt';
+re = 'PatNo\d+.*[D|P]F_\d-\d+Hz.*\.txt';    % regular expression for sine files
+re_step = 'PatNo\d+.*[D|P]F_Step.*\.txt';   % regular expression for step files
 vrfiles = {};
 
 for i = 1:length(rawfiles)
@@ -245,6 +260,8 @@ for i = 1:length(rawfiles)
     if ~isempty(temp)
         vrfiles{end+1} = temp{1};
     end
+    
+    if ~isempty(
 end
 
 % Run analyzedata_randomtrials on all vrfiles
@@ -255,7 +272,9 @@ for i = 1:length(vrfiles)
     set(handles.textbox_rawdatafolder, 'string', tempstr);
     drawnow;
     ProcessRawData('mvcmatfile', mvcmatfile, ...
-                   'vrfile', fullfile(RD_DIR, vrfiles{i}));
+                   'vrfile', fullfile(RD_DIR, vrfiles{i}), ...
+                   'minval', minval, ...
+                   'maxval', maxval);
 end
 set(handles.textbox_rawdatafolder, 'string', 'Done');
 drawnow;
@@ -277,3 +296,49 @@ function rbtn_violations_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of rbtn_violations
+
+
+
+function lineedit_minval_Callback(hObject, eventdata, handles)
+% hObject    handle to lineedit_minval (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of lineedit_minval as text
+%        str2double(get(hObject,'String')) returns contents of lineedit_minval as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function lineedit_minval_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to lineedit_minval (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function lineedit_maxval_Callback(hObject, eventdata, handles)
+% hObject    handle to lineedit_maxval (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of lineedit_maxval as text
+%        str2double(get(hObject,'String')) returns contents of lineedit_maxval as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function lineedit_maxval_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to lineedit_maxval (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

@@ -330,9 +330,4 @@ function res = PlotProcessedData(varargin)
         end
     end
     
-    
-    
-    
-    
-    
 end

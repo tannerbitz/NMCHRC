@@ -63,7 +63,6 @@ refdata_live_filtered = np.zeros([1,filterOrder+1]).flatten()
 measdata_live_unfiltered = np.zeros([1,filterOrder+1]).flatten()
 measdata_live_filtered = np.zeros([1,filterOrder+1]).flatten()
 
-
 # Populate dictionary for automatic trials
 autotrial_dict = {}
 for i in range(1, 11):
@@ -77,8 +76,6 @@ trial_seq = np.array([[ 19,	3 ,	16,	14,	11,	6 ,	7 ,	12,	18,	20,	5 ,	4 ,	13,	17,	
                       [ 14,	13,	12,	10,	5 ,	20,	3 ,	8 ,	6 ,	16,	18,	19,	9 ,	11,	17,	1 ,	4 ,	2 ,	7 ,	15],
                       [ 18,	10,	5 ,	19,	13,	1 ,	8 ,	17,	16,	15,	12,	11,	6 ,	9 ,	7 ,	2 ,	3 ,	14,	20,	4 ],
                       [ 8 ,	12,	20,	11,	19,	7 ,	3 ,	5 ,	1 ,	15,	10,	18,	2 ,	14,	13,	17,	9 ,	6 ,	4 ,	16]])
-
-
 
 class SerialThread(QThread):
     # Signals

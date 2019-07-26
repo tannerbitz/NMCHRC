@@ -8,11 +8,15 @@ function res = ProcessRawData(varargin)
     p = inputParser;
     addParameter(p, 'mvcmatfile', '');
     addParameter(p, 'vrfile', '');
+    addParameter(p, 'minval', '');
+    addParameter(p, 'maxval', '');
     parse(p, varargin{:});
     
     % Determine if arguments were inputted
     mvcmatfileinputted = ~strcmp('', p.Results.mvcmatfile);
     vrfileinputted = ~strcmp('', p.Results.vrfile);
+    minvalinputted = ~strcmp('', p.Results.minval);
+    maxvalinputted = ~strcmp('', p.Results.maxval);
     
     % Choose MVC MAT Files. Get the PF and DF MVC Values which were calculated
     % and saved in this mat file.  This file should be in raw data folder.
@@ -132,8 +136,22 @@ function res = ProcessRawData(varargin)
     samplesaftercycle = 1500;
     startsample = 9000;
     
-    refmax = max(refdata);
-    refmin = min(refdata);
+    % If reference min val not inputted take min of refdata, otherwise use
+    % given value
+    if ~(minvalinputted)
+        refmin = min(refdata);
+    else
+        refmin = p.Results.minval;
+    end
+    
+    % If reference max val not inputted take max of refdata, otherwise use
+    % given value
+    if ~(maxvalinputted)
+        refmax = max(refdata);
+    else
+        refmax = p.Results.maxval;
+    end
+
     trialstruct.refmaxraw = refmax;
     trialstruct.refminraw = refmin;
     sampletime = 1/samplespersec;
@@ -178,9 +196,8 @@ function res = ProcessRawData(varargin)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Convert raw refdata and measdata to percentages  %
-    % of commanded ref signal (30% MVC)              %
+    % of commanded ref signal (30% MVC)                %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
     trialstruct.cyclerefdata_percentcommand = trialstruct.cyclerefdata_nm * 100/(trialstruct.mvc*percentmvc);
     trialstruct.cyclemeasdata_percentcommand = trialstruct.cyclemeasdata_nm * 100/(trialstruct.mvc*percentmvc);
         

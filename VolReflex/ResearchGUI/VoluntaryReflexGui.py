@@ -959,6 +959,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Make DAQ of reference signal channel measure 0-5V
         self._serialThread.changeVoltageRange(referencesignalchannel,
                                               self._serialThread._voltRanges['ZERO_TO_FIVE'])
+        self._serialThread.changeVoltageRange(measuredsignalchannel,
+                                              self._serialThread._voltRanges['NEG_FIVE_TO_FIVE'])
 
         # Set Teensy Volt Floor = 0, Volt Ceil = 4095
         self._calFloorSamples = []
